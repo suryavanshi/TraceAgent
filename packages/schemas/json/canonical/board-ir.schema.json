@@ -1,0 +1,270 @@
+{
+  "$defs": {
+    "BoardOutline": {
+      "additionalProperties": false,
+      "properties": {
+        "shape": {
+          "minLength": 1,
+          "title": "Shape",
+          "type": "string"
+        },
+        "dimensions_mm": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Dimensions Mm",
+          "type": "object"
+        }
+      },
+      "required": [
+        "shape"
+      ],
+      "title": "BoardOutline",
+      "type": "object"
+    },
+    "Constraint": {
+      "additionalProperties": false,
+      "properties": {
+        "constraint_id": {
+          "minLength": 1,
+          "title": "Constraint Id",
+          "type": "string"
+        },
+        "kind": {
+          "minLength": 1,
+          "title": "Kind",
+          "type": "string"
+        },
+        "expression": {
+          "minLength": 1,
+          "title": "Expression",
+          "type": "string"
+        }
+      },
+      "required": [
+        "constraint_id",
+        "kind",
+        "expression"
+      ],
+      "title": "Constraint",
+      "type": "object"
+    },
+    "Footprint": {
+      "additionalProperties": false,
+      "properties": {
+        "footprint_id": {
+          "minLength": 1,
+          "title": "Footprint Id",
+          "type": "string"
+        },
+        "instance_id": {
+          "minLength": 1,
+          "title": "Instance Id",
+          "type": "string"
+        },
+        "package": {
+          "minLength": 1,
+          "title": "Package",
+          "type": "string"
+        }
+      },
+      "required": [
+        "footprint_id",
+        "instance_id",
+        "package"
+      ],
+      "title": "Footprint",
+      "type": "object"
+    },
+    "NetClass": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "nets": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Nets",
+          "type": "array"
+        },
+        "rules": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "title": "Rules",
+          "type": "object"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "NetClass",
+      "type": "object"
+    },
+    "Region": {
+      "additionalProperties": false,
+      "properties": {
+        "region_id": {
+          "minLength": 1,
+          "title": "Region Id",
+          "type": "string"
+        },
+        "region_type": {
+          "minLength": 1,
+          "title": "Region Type",
+          "type": "string"
+        },
+        "layers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Layers",
+          "type": "array"
+        }
+      },
+      "required": [
+        "region_id",
+        "region_type"
+      ],
+      "title": "Region",
+      "type": "object"
+    },
+    "RoutingIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "net_or_group": {
+          "minLength": 1,
+          "title": "Net Or Group",
+          "type": "string"
+        },
+        "intent": {
+          "minLength": 1,
+          "title": "Intent",
+          "type": "string"
+        }
+      },
+      "required": [
+        "net_or_group",
+        "intent"
+      ],
+      "title": "RoutingIntent",
+      "type": "object"
+    },
+    "StackupLayer": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "minLength": 1,
+          "title": "Kind",
+          "type": "string"
+        },
+        "thickness_um": {
+          "exclusiveMinimum": 0,
+          "title": "Thickness Um",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "thickness_um"
+      ],
+      "title": "StackupLayer",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "board_outline": {
+      "$ref": "#/$defs/BoardOutline"
+    },
+    "stackup": {
+      "items": {
+        "$ref": "#/$defs/StackupLayer"
+      },
+      "title": "Stackup",
+      "type": "array"
+    },
+    "footprints": {
+      "items": {
+        "$ref": "#/$defs/Footprint"
+      },
+      "title": "Footprints",
+      "type": "array"
+    },
+    "placement_constraints": {
+      "items": {
+        "$ref": "#/$defs/Constraint"
+      },
+      "title": "Placement Constraints",
+      "type": "array"
+    },
+    "design_rules": {
+      "items": {
+        "$ref": "#/$defs/Constraint"
+      },
+      "title": "Design Rules",
+      "type": "array"
+    },
+    "net_classes": {
+      "items": {
+        "$ref": "#/$defs/NetClass"
+      },
+      "title": "Net Classes",
+      "type": "array"
+    },
+    "keepouts": {
+      "items": {
+        "$ref": "#/$defs/Region"
+      },
+      "title": "Keepouts",
+      "type": "array"
+    },
+    "zones": {
+      "items": {
+        "$ref": "#/$defs/Region"
+      },
+      "title": "Zones",
+      "type": "array"
+    },
+    "routing_intents": {
+      "items": {
+        "$ref": "#/$defs/RoutingIntent"
+      },
+      "title": "Routing Intents",
+      "type": "array"
+    }
+  },
+  "required": [
+    "board_outline"
+  ],
+  "title": "BoardIR",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://traceagent.dev/schemas/canonical/board-ir.schema.json"
+}

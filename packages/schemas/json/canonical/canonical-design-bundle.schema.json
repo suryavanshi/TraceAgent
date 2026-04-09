@@ -1,0 +1,929 @@
+{
+  "$defs": {
+    "Annotation": {
+      "additionalProperties": false,
+      "properties": {
+        "annotation_id": {
+          "minLength": 1,
+          "title": "Annotation Id",
+          "type": "string"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "scope": {
+          "minLength": 1,
+          "title": "Scope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "annotation_id",
+        "text",
+        "scope"
+      ],
+      "title": "Annotation",
+      "type": "object"
+    },
+    "BoardIR": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "board_outline": {
+          "$ref": "#/$defs/BoardOutline"
+        },
+        "stackup": {
+          "items": {
+            "$ref": "#/$defs/StackupLayer"
+          },
+          "title": "Stackup",
+          "type": "array"
+        },
+        "footprints": {
+          "items": {
+            "$ref": "#/$defs/Footprint"
+          },
+          "title": "Footprints",
+          "type": "array"
+        },
+        "placement_constraints": {
+          "items": {
+            "$ref": "#/$defs/Constraint"
+          },
+          "title": "Placement Constraints",
+          "type": "array"
+        },
+        "design_rules": {
+          "items": {
+            "$ref": "#/$defs/Constraint"
+          },
+          "title": "Design Rules",
+          "type": "array"
+        },
+        "net_classes": {
+          "items": {
+            "$ref": "#/$defs/NetClass"
+          },
+          "title": "Net Classes",
+          "type": "array"
+        },
+        "keepouts": {
+          "items": {
+            "$ref": "#/$defs/Region"
+          },
+          "title": "Keepouts",
+          "type": "array"
+        },
+        "zones": {
+          "items": {
+            "$ref": "#/$defs/Region"
+          },
+          "title": "Zones",
+          "type": "array"
+        },
+        "routing_intents": {
+          "items": {
+            "$ref": "#/$defs/RoutingIntent"
+          },
+          "title": "Routing Intents",
+          "type": "array"
+        }
+      },
+      "required": [
+        "board_outline"
+      ],
+      "title": "BoardIR",
+      "type": "object"
+    },
+    "BoardOutline": {
+      "additionalProperties": false,
+      "properties": {
+        "shape": {
+          "minLength": 1,
+          "title": "Shape",
+          "type": "string"
+        },
+        "dimensions_mm": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Dimensions Mm",
+          "type": "object"
+        }
+      },
+      "required": [
+        "shape"
+      ],
+      "title": "BoardOutline",
+      "type": "object"
+    },
+    "CircuitSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "product_name": {
+          "minLength": 1,
+          "title": "Product Name",
+          "type": "string"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "target_board_type": {
+          "minLength": 1,
+          "title": "Target Board Type",
+          "type": "string"
+        },
+        "functional_blocks": {
+          "items": {
+            "$ref": "#/$defs/NamedObject"
+          },
+          "title": "Functional Blocks",
+          "type": "array"
+        },
+        "interfaces": {
+          "items": {
+            "$ref": "#/$defs/NamedObject"
+          },
+          "title": "Interfaces",
+          "type": "array"
+        },
+        "power_rails": {
+          "items": {
+            "$ref": "#/$defs/NamedObject"
+          },
+          "title": "Power Rails",
+          "type": "array"
+        },
+        "environmental_constraints": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Environmental Constraints",
+          "type": "array"
+        },
+        "mechanical_constraints": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Mechanical Constraints",
+          "type": "array"
+        },
+        "cost_constraints": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Cost Constraints",
+          "type": "array"
+        },
+        "manufacturing_constraints": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Manufacturing Constraints",
+          "type": "array"
+        },
+        "preferred_parts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Preferred Parts",
+          "type": "array"
+        },
+        "banned_parts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Banned Parts",
+          "type": "array"
+        },
+        "open_questions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Open Questions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "product_name",
+        "summary",
+        "target_board_type"
+      ],
+      "title": "CircuitSpec",
+      "type": "object"
+    },
+    "ComponentInstance": {
+      "additionalProperties": false,
+      "properties": {
+        "instance_id": {
+          "minLength": 1,
+          "title": "Instance Id",
+          "type": "string"
+        },
+        "symbol_id": {
+          "minLength": 1,
+          "title": "Symbol Id",
+          "type": "string"
+        },
+        "reference": {
+          "minLength": 1,
+          "title": "Reference",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Properties"
+        }
+      },
+      "required": [
+        "instance_id",
+        "symbol_id",
+        "reference"
+      ],
+      "title": "ComponentInstance",
+      "type": "object"
+    },
+    "Constraint": {
+      "additionalProperties": false,
+      "properties": {
+        "constraint_id": {
+          "minLength": 1,
+          "title": "Constraint Id",
+          "type": "string"
+        },
+        "kind": {
+          "minLength": 1,
+          "title": "Kind",
+          "type": "string"
+        },
+        "expression": {
+          "minLength": 1,
+          "title": "Expression",
+          "type": "string"
+        }
+      },
+      "required": [
+        "constraint_id",
+        "kind",
+        "expression"
+      ],
+      "title": "Constraint",
+      "type": "object"
+    },
+    "Finding": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "details": {
+          "additionalProperties": true,
+          "title": "Details",
+          "type": "object"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "Footprint": {
+      "additionalProperties": false,
+      "properties": {
+        "footprint_id": {
+          "minLength": 1,
+          "title": "Footprint Id",
+          "type": "string"
+        },
+        "instance_id": {
+          "minLength": 1,
+          "title": "Instance Id",
+          "type": "string"
+        },
+        "package": {
+          "minLength": 1,
+          "title": "Package",
+          "type": "string"
+        }
+      },
+      "required": [
+        "footprint_id",
+        "instance_id",
+        "package"
+      ],
+      "title": "Footprint",
+      "type": "object"
+    },
+    "HierarchicalSheet": {
+      "additionalProperties": false,
+      "properties": {
+        "sheet_id": {
+          "minLength": 1,
+          "title": "Sheet Id",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "parent_sheet_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Sheet Id"
+        }
+      },
+      "required": [
+        "sheet_id",
+        "name"
+      ],
+      "title": "HierarchicalSheet",
+      "type": "object"
+    },
+    "NamedObject": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "NamedObject",
+      "type": "object"
+    },
+    "Net": {
+      "additionalProperties": false,
+      "properties": {
+        "net_id": {
+          "minLength": 1,
+          "title": "Net Id",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/NetNode"
+          },
+          "title": "Nodes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "net_id"
+      ],
+      "title": "Net",
+      "type": "object"
+    },
+    "NetClass": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "nets": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Nets",
+          "type": "array"
+        },
+        "rules": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "title": "Rules",
+          "type": "object"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "NetClass",
+      "type": "object"
+    },
+    "NetLabel": {
+      "additionalProperties": false,
+      "properties": {
+        "net_id": {
+          "minLength": 1,
+          "title": "Net Id",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "net_id",
+        "label"
+      ],
+      "title": "NetLabel",
+      "type": "object"
+    },
+    "NetNode": {
+      "additionalProperties": false,
+      "properties": {
+        "instance_id": {
+          "minLength": 1,
+          "title": "Instance Id",
+          "type": "string"
+        },
+        "pin_number": {
+          "minLength": 1,
+          "title": "Pin Number",
+          "type": "string"
+        }
+      },
+      "required": [
+        "instance_id",
+        "pin_number"
+      ],
+      "title": "NetNode",
+      "type": "object"
+    },
+    "PatchOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "enum": [
+            "add",
+            "update",
+            "remove",
+            "move"
+          ],
+          "title": "Op",
+          "type": "string"
+        },
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "op",
+        "path"
+      ],
+      "title": "PatchOperation",
+      "type": "object"
+    },
+    "PatchPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "user_intent": {
+          "minLength": 1,
+          "title": "User Intent",
+          "type": "string"
+        },
+        "affected_objects": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Affected Objects",
+          "type": "array"
+        },
+        "operations": {
+          "items": {
+            "$ref": "#/$defs/PatchOperation"
+          },
+          "title": "Operations",
+          "type": "array"
+        },
+        "impact_scope": {
+          "enum": [
+            "local",
+            "sheet",
+            "board",
+            "global"
+          ],
+          "title": "Impact Scope",
+          "type": "string"
+        },
+        "requires_confirmation": {
+          "title": "Requires Confirmation",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "user_intent",
+        "impact_scope",
+        "requires_confirmation"
+      ],
+      "title": "PatchPlan",
+      "type": "object"
+    },
+    "Pin": {
+      "additionalProperties": false,
+      "properties": {
+        "pin_id": {
+          "minLength": 1,
+          "title": "Pin Id",
+          "type": "string"
+        },
+        "instance_id": {
+          "minLength": 1,
+          "title": "Instance Id",
+          "type": "string"
+        },
+        "number": {
+          "minLength": 1,
+          "title": "Number",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "direction": {
+          "$ref": "#/$defs/PinDirection"
+        }
+      },
+      "required": [
+        "pin_id",
+        "instance_id",
+        "number",
+        "name",
+        "direction"
+      ],
+      "title": "Pin",
+      "type": "object"
+    },
+    "PinDirection": {
+      "enum": [
+        "input",
+        "output",
+        "bidirectional",
+        "passive",
+        "power"
+      ],
+      "title": "PinDirection",
+      "type": "string"
+    },
+    "Region": {
+      "additionalProperties": false,
+      "properties": {
+        "region_id": {
+          "minLength": 1,
+          "title": "Region Id",
+          "type": "string"
+        },
+        "region_type": {
+          "minLength": 1,
+          "title": "Region Type",
+          "type": "string"
+        },
+        "layers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Layers",
+          "type": "array"
+        }
+      },
+      "required": [
+        "region_id",
+        "region_type"
+      ],
+      "title": "Region",
+      "type": "object"
+    },
+    "RoutingIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "net_or_group": {
+          "minLength": 1,
+          "title": "Net Or Group",
+          "type": "string"
+        },
+        "intent": {
+          "minLength": 1,
+          "title": "Intent",
+          "type": "string"
+        }
+      },
+      "required": [
+        "net_or_group",
+        "intent"
+      ],
+      "title": "RoutingIntent",
+      "type": "object"
+    },
+    "SchematicIR": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "symbols": {
+          "items": {
+            "$ref": "#/$defs/Symbol"
+          },
+          "title": "Symbols",
+          "type": "array"
+        },
+        "component_instances": {
+          "items": {
+            "$ref": "#/$defs/ComponentInstance"
+          },
+          "title": "Component Instances",
+          "type": "array"
+        },
+        "pins": {
+          "items": {
+            "$ref": "#/$defs/Pin"
+          },
+          "title": "Pins",
+          "type": "array"
+        },
+        "nets": {
+          "items": {
+            "$ref": "#/$defs/Net"
+          },
+          "title": "Nets",
+          "type": "array"
+        },
+        "net_labels": {
+          "items": {
+            "$ref": "#/$defs/NetLabel"
+          },
+          "title": "Net Labels",
+          "type": "array"
+        },
+        "hierarchical_sheets": {
+          "items": {
+            "$ref": "#/$defs/HierarchicalSheet"
+          },
+          "title": "Hierarchical Sheets",
+          "type": "array"
+        },
+        "annotations": {
+          "items": {
+            "$ref": "#/$defs/Annotation"
+          },
+          "title": "Annotations",
+          "type": "array"
+        }
+      },
+      "title": "SchematicIR",
+      "type": "object"
+    },
+    "Severity": {
+      "enum": [
+        "info",
+        "warning",
+        "error",
+        "critical"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "StackupLayer": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "minLength": 1,
+          "title": "Kind",
+          "type": "string"
+        },
+        "thickness_um": {
+          "exclusiveMinimum": 0,
+          "title": "Thickness Um",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "thickness_um"
+      ],
+      "title": "StackupLayer",
+      "type": "object"
+    },
+    "Symbol": {
+      "additionalProperties": false,
+      "properties": {
+        "symbol_id": {
+          "minLength": 1,
+          "title": "Symbol Id",
+          "type": "string"
+        },
+        "kind": {
+          "minLength": 1,
+          "title": "Kind",
+          "type": "string"
+        },
+        "library_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Library Ref"
+        }
+      },
+      "required": [
+        "symbol_id",
+        "kind"
+      ],
+      "title": "Symbol",
+      "type": "object"
+    },
+    "VerificationReport": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "tool": {
+          "minLength": 1,
+          "title": "Tool",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/Finding"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
+        "affected_objects": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Affected Objects",
+          "type": "array"
+        },
+        "suggested_fixes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Suggested Fixes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "tool",
+        "severity"
+      ],
+      "title": "VerificationReport",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "circuit_spec": {
+      "$ref": "#/$defs/CircuitSpec"
+    },
+    "schematic_ir": {
+      "$ref": "#/$defs/SchematicIR"
+    },
+    "board_ir": {
+      "$ref": "#/$defs/BoardIR"
+    },
+    "patch_plan": {
+      "$ref": "#/$defs/PatchPlan"
+    },
+    "verification_report": {
+      "$ref": "#/$defs/VerificationReport"
+    }
+  },
+  "required": [
+    "circuit_spec",
+    "schematic_ir",
+    "board_ir",
+    "patch_plan",
+    "verification_report"
+  ],
+  "title": "CanonicalDesignBundle",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://traceagent.dev/schemas/canonical/canonical-design-bundle.schema.json"
+}

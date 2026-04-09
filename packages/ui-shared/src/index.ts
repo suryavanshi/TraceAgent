@@ -6,3 +6,5 @@ export type HealthStatus = {
   service: string;
   version: string;
 };
+
+export * from "./generated/canonical-types";
