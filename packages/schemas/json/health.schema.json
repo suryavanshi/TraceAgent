@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://traceagent.dev/schemas/health.schema.json",
+  "title": "HealthResponse",
+  "type": "object",
+  "required": ["status", "service", "version"],
+  "properties": {
+    "status": { "type": "string" },
+    "service": { "type": "string" },
+    "version": { "type": "string" }
+  }
+}
