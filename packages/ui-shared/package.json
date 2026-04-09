@@ -1,0 +1,16 @@
+{
+  "name": "@traceagent/ui-shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "node -e \"console.log('ui-shared lint placeholder')\"",
+    "typecheck": "tsc --noEmit",
+    "test": "node -e \"console.log('ui-shared tests placeholder')\""
+  },
+  "devDependencies": {
+    "typescript": "5.8.3"
+  }
+}

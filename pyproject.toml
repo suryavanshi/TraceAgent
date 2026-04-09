@@ -1,0 +1,22 @@
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = [
+  "apps/api/tests",
+  "apps/worker/tests",
+  "packages/design-ir/tests",
+  "packages/kicad/tests",
+  "packages/llm/tests",
+  "packages/verification/tests"
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+warn_unused_configs = true
