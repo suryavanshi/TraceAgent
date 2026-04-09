@@ -8,6 +8,8 @@ version = "0.1.0"
 dependencies = [
   "fastapi==0.115.12",
   "uvicorn==0.34.1",
+  "sqlalchemy==2.0.40",
+  "psycopg[binary]==3.2.6",
   "traceagent-schemas",
   "traceagent-design-ir",
   "traceagent-llm",
