@@ -1,0 +1,329 @@
+{
+  "$defs": {
+    "Annotation": {
+      "additionalProperties": false,
+      "properties": {
+        "annotation_id": {
+          "minLength": 1,
+          "title": "Annotation Id",
+          "type": "string"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "scope": {
+          "minLength": 1,
+          "title": "Scope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "annotation_id",
+        "text",
+        "scope"
+      ],
+      "title": "Annotation",
+      "type": "object"
+    },
+    "ComponentInstance": {
+      "additionalProperties": false,
+      "properties": {
+        "instance_id": {
+          "minLength": 1,
+          "title": "Instance Id",
+          "type": "string"
+        },
+        "symbol_id": {
+          "minLength": 1,
+          "title": "Symbol Id",
+          "type": "string"
+        },
+        "reference": {
+          "minLength": 1,
+          "title": "Reference",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Properties"
+        }
+      },
+      "required": [
+        "instance_id",
+        "symbol_id",
+        "reference"
+      ],
+      "title": "ComponentInstance",
+      "type": "object"
+    },
+    "HierarchicalSheet": {
+      "additionalProperties": false,
+      "properties": {
+        "sheet_id": {
+          "minLength": 1,
+          "title": "Sheet Id",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "parent_sheet_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Sheet Id"
+        }
+      },
+      "required": [
+        "sheet_id",
+        "name"
+      ],
+      "title": "HierarchicalSheet",
+      "type": "object"
+    },
+    "Net": {
+      "additionalProperties": false,
+      "properties": {
+        "net_id": {
+          "minLength": 1,
+          "title": "Net Id",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/NetNode"
+          },
+          "title": "Nodes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "net_id"
+      ],
+      "title": "Net",
+      "type": "object"
+    },
+    "NetLabel": {
+      "additionalProperties": false,
+      "properties": {
+        "net_id": {
+          "minLength": 1,
+          "title": "Net Id",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "net_id",
+        "label"
+      ],
+      "title": "NetLabel",
+      "type": "object"
+    },
+    "NetNode": {
+      "additionalProperties": false,
+      "properties": {
+        "instance_id": {
+          "minLength": 1,
+          "title": "Instance Id",
+          "type": "string"
+        },
+        "pin_number": {
+          "minLength": 1,
+          "title": "Pin Number",
+          "type": "string"
+        }
+      },
+      "required": [
+        "instance_id",
+        "pin_number"
+      ],
+      "title": "NetNode",
+      "type": "object"
+    },
+    "Pin": {
+      "additionalProperties": false,
+      "properties": {
+        "pin_id": {
+          "minLength": 1,
+          "title": "Pin Id",
+          "type": "string"
+        },
+        "instance_id": {
+          "minLength": 1,
+          "title": "Instance Id",
+          "type": "string"
+        },
+        "number": {
+          "minLength": 1,
+          "title": "Number",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "direction": {
+          "$ref": "#/$defs/PinDirection"
+        }
+      },
+      "required": [
+        "pin_id",
+        "instance_id",
+        "number",
+        "name",
+        "direction"
+      ],
+      "title": "Pin",
+      "type": "object"
+    },
+    "PinDirection": {
+      "enum": [
+        "input",
+        "output",
+        "bidirectional",
+        "passive",
+        "power"
+      ],
+      "title": "PinDirection",
+      "type": "string"
+    },
+    "Symbol": {
+      "additionalProperties": false,
+      "properties": {
+        "symbol_id": {
+          "minLength": 1,
+          "title": "Symbol Id",
+          "type": "string"
+        },
+        "kind": {
+          "minLength": 1,
+          "title": "Kind",
+          "type": "string"
+        },
+        "library_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Library Ref"
+        }
+      },
+      "required": [
+        "symbol_id",
+        "kind"
+      ],
+      "title": "Symbol",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "symbols": {
+      "items": {
+        "$ref": "#/$defs/Symbol"
+      },
+      "title": "Symbols",
+      "type": "array"
+    },
+    "component_instances": {
+      "items": {
+        "$ref": "#/$defs/ComponentInstance"
+      },
+      "title": "Component Instances",
+      "type": "array"
+    },
+    "pins": {
+      "items": {
+        "$ref": "#/$defs/Pin"
+      },
+      "title": "Pins",
+      "type": "array"
+    },
+    "nets": {
+      "items": {
+        "$ref": "#/$defs/Net"
+      },
+      "title": "Nets",
+      "type": "array"
+    },
+    "net_labels": {
+      "items": {
+        "$ref": "#/$defs/NetLabel"
+      },
+      "title": "Net Labels",
+      "type": "array"
+    },
+    "hierarchical_sheets": {
+      "items": {
+        "$ref": "#/$defs/HierarchicalSheet"
+      },
+      "title": "Hierarchical Sheets",
+      "type": "array"
+    },
+    "annotations": {
+      "items": {
+        "$ref": "#/$defs/Annotation"
+      },
+      "title": "Annotations",
+      "type": "array"
+    }
+  },
+  "title": "SchematicIR",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://traceagent.dev/schemas/canonical/schematic-ir.schema.json"
+}

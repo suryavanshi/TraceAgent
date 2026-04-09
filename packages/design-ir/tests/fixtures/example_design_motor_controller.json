@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0.0",
+  "circuit_spec": {
+    "schema_version": "1.0.0",
+    "product_name": "BLDC Controller",
+    "summary": "Three-phase motor controller with CAN.",
+    "target_board_type": "rigid",
+    "functional_blocks": [{"name": "Power Stage"}, {"name": "Control"}],
+    "interfaces": [{"name": "CAN"}, {"name": "UART"}],
+    "power_rails": [{"name": "24VIN"}, {"name": "5V"}, {"name": "3V3"}],
+    "environmental_constraints": ["Up to 85C ambient"],
+    "mechanical_constraints": ["Heatsink mounting holes required"],
+    "cost_constraints": ["BOM under 35 USD"],
+    "manufacturing_constraints": ["4-layer board"],
+    "preferred_parts": ["STM32G4"],
+    "banned_parts": ["through-hole MOSFET"],
+    "open_questions": ["Shunt resistor value finalization"]
+  },
+  "schematic_ir": {
+    "schema_version": "1.0.0",
+    "symbols": [{"symbol_id": "sym_ctrl", "kind": "microcontroller"}],
+    "component_instances": [{"instance_id": "u_ctrl", "symbol_id": "sym_ctrl", "reference": "U1"}],
+    "pins": [{"pin_id": "u_ctrl_1", "instance_id": "u_ctrl", "number": "1", "name": "VDD", "direction": "power"}],
+    "nets": [{"net_id": "n_3v3", "name": "3V3", "nodes": [{"instance_id": "u_ctrl", "pin_number": "1"}]}],
+    "net_labels": [{"net_id": "n_3v3", "label": "3V3"}],
+    "hierarchical_sheets": [{"sheet_id": "root", "name": "Root"}, {"sheet_id": "power", "name": "Power", "parent_sheet_id": "root"}],
+    "annotations": [{"annotation_id": "a1", "text": "RevA", "scope": "sheet:power"}]
+  },
+  "board_ir": {
+    "schema_version": "1.0.0",
+    "board_outline": {"shape": "polygon", "dimensions_mm": {"area": 4500.0}},
+    "stackup": [{"name": "Top", "kind": "signal", "thickness_um": 35.0}, {"name": "Inner1", "kind": "plane", "thickness_um": 18.0}],
+    "footprints": [{"footprint_id": "fp_ctrl", "instance_id": "u_ctrl", "package": "LQFP-64"}],
+    "placement_constraints": [],
+    "design_rules": [{"constraint_id": "dr1", "kind": "min_track", "expression": ">=0.2mm"}],
+    "net_classes": [{"name": "logic", "nets": ["n_3v3"], "rules": {"width": 0.2}}],
+    "keepouts": [],
+    "zones": [],
+    "routing_intents": [{"net_or_group": "phase_outputs", "intent": "length_balance"}]
+  },
+  "patch_plan": {
+    "schema_version": "1.0.0",
+    "user_intent": "Tighten CAN differential pair constraints",
+    "affected_objects": ["net_class:can"],
+    "operations": [{"op": "update", "path": "/board_ir/net_classes/0/rules/width", "value": 0.25}],
+    "impact_scope": "board",
+    "requires_confirmation": false
+  },
+  "verification_report": {
+    "schema_version": "1.0.0",
+    "tool": "drc",
+    "severity": "error",
+    "findings": [{"code": "CLEARANCE", "message": "Clearance violation near U1", "details": {"distance": 0.09}}],
+    "affected_objects": ["fp_ctrl"],
+    "suggested_fixes": ["Increase spacing", "Move adjacent capacitor"]
+  }
+}

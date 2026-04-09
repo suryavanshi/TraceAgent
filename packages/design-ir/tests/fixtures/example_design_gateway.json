@@ -1,0 +1,63 @@
+{
+  "schema_version": "1.0.0",
+  "circuit_spec": {
+    "schema_version": "1.0.0",
+    "product_name": "Industrial Gateway",
+    "summary": "Ethernet + RS485 data concentrator.",
+    "target_board_type": "rigid",
+    "functional_blocks": [{"name": "Compute"}, {"name": "Comms"}, {"name": "Power"}],
+    "interfaces": [{"name": "Ethernet"}, {"name": "RS485"}, {"name": "USB"}],
+    "power_rails": [{"name": "12VIN"}, {"name": "5V"}, {"name": "3V3"}],
+    "environmental_constraints": ["-40C to 85C"],
+    "mechanical_constraints": ["DIN rail enclosure"],
+    "cost_constraints": ["BOM under 42 USD"],
+    "manufacturing_constraints": ["Panelized assembly"],
+    "preferred_parts": ["i.MX RT"],
+    "banned_parts": ["non-automotive connectors"],
+    "open_questions": ["PoE variant planned?"]
+  },
+  "schematic_ir": {
+    "schema_version": "1.0.0",
+    "symbols": [{"symbol_id": "sym_cpu", "kind": "processor"}, {"symbol_id": "sym_phy", "kind": "ethernet_phy"}],
+    "component_instances": [
+      {"instance_id": "u_cpu", "symbol_id": "sym_cpu", "reference": "U1"},
+      {"instance_id": "u_phy", "symbol_id": "sym_phy", "reference": "U2"}
+    ],
+    "pins": [
+      {"pin_id": "u_cpu_tx", "instance_id": "u_cpu", "number": "12", "name": "TX", "direction": "output"},
+      {"pin_id": "u_phy_rx", "instance_id": "u_phy", "number": "3", "name": "RX", "direction": "input"}
+    ],
+    "nets": [{"net_id": "n_eth_tx", "nodes": [{"instance_id": "u_cpu", "pin_number": "12"}, {"instance_id": "u_phy", "pin_number": "3"}]}],
+    "net_labels": [{"net_id": "n_eth_tx", "label": "ETH_TX"}],
+    "hierarchical_sheets": [{"sheet_id": "root", "name": "Top"}],
+    "annotations": []
+  },
+  "board_ir": {
+    "schema_version": "1.0.0",
+    "board_outline": {"shape": "rectangle", "dimensions_mm": {"width": 95.0, "height": 65.0}},
+    "stackup": [{"name": "Top", "kind": "signal", "thickness_um": 35.0}],
+    "footprints": [{"footprint_id": "fp_cpu", "instance_id": "u_cpu", "package": "BGA-196"}],
+    "placement_constraints": [{"constraint_id": "pc_eth", "kind": "near_connector", "expression": "u_phy within 15mm of RJ45"}],
+    "design_rules": [],
+    "net_classes": [],
+    "keepouts": [{"region_id": "ko_mount", "region_type": "mechanical", "layers": ["Top", "Bottom"]}],
+    "zones": [],
+    "routing_intents": [{"net_or_group": "n_eth_tx", "intent": "controlled_impedance"}]
+  },
+  "patch_plan": {
+    "schema_version": "1.0.0",
+    "user_intent": "Move PHY closer to connector",
+    "affected_objects": ["u_phy", "fp_phy"],
+    "operations": [{"op": "move", "path": "/board_ir/footprints/fp_phy", "value": {"x": 14.1, "y": 22.3}}],
+    "impact_scope": "local",
+    "requires_confirmation": true
+  },
+  "verification_report": {
+    "schema_version": "1.0.0",
+    "tool": "si-check",
+    "severity": "info",
+    "findings": [{"code": "IMPEDANCE_OK", "message": "All Ethernet nets within tolerance", "details": {"target_ohm": 100}}],
+    "affected_objects": ["n_eth_tx"],
+    "suggested_fixes": []
+  }
+}

@@ -1,0 +1,134 @@
+{
+  "$defs": {
+    "NamedObject": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "NamedObject",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "product_name": {
+      "minLength": 1,
+      "title": "Product Name",
+      "type": "string"
+    },
+    "summary": {
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    },
+    "target_board_type": {
+      "minLength": 1,
+      "title": "Target Board Type",
+      "type": "string"
+    },
+    "functional_blocks": {
+      "items": {
+        "$ref": "#/$defs/NamedObject"
+      },
+      "title": "Functional Blocks",
+      "type": "array"
+    },
+    "interfaces": {
+      "items": {
+        "$ref": "#/$defs/NamedObject"
+      },
+      "title": "Interfaces",
+      "type": "array"
+    },
+    "power_rails": {
+      "items": {
+        "$ref": "#/$defs/NamedObject"
+      },
+      "title": "Power Rails",
+      "type": "array"
+    },
+    "environmental_constraints": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Environmental Constraints",
+      "type": "array"
+    },
+    "mechanical_constraints": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Mechanical Constraints",
+      "type": "array"
+    },
+    "cost_constraints": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Cost Constraints",
+      "type": "array"
+    },
+    "manufacturing_constraints": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Manufacturing Constraints",
+      "type": "array"
+    },
+    "preferred_parts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Preferred Parts",
+      "type": "array"
+    },
+    "banned_parts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Banned Parts",
+      "type": "array"
+    },
+    "open_questions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Open Questions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "product_name",
+    "summary",
+    "target_board_type"
+  ],
+  "title": "CircuitSpec",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://traceagent.dev/schemas/canonical/circuit-spec.schema.json"
+}

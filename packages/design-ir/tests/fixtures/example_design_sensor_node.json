@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0.0",
+  "circuit_spec": {
+    "schema_version": "1.0.0",
+    "product_name": "Env Sensor Node",
+    "summary": "Battery-powered BLE environmental sensor.",
+    "target_board_type": "rigid",
+    "functional_blocks": [{"name": "MCU"}, {"name": "Sensing"}],
+    "interfaces": [{"name": "BLE"}, {"name": "SWD"}],
+    "power_rails": [{"name": "VBAT"}, {"name": "3V3"}],
+    "environmental_constraints": ["-20C to 60C"],
+    "mechanical_constraints": ["30mm x 20mm max"],
+    "cost_constraints": ["BOM under 9 USD"],
+    "manufacturing_constraints": ["2-layer FR4"],
+    "preferred_parts": ["nRF52"],
+    "banned_parts": ["obsolete regulator"],
+    "open_questions": ["Battery holder orientation?"]
+  },
+  "schematic_ir": {
+    "schema_version": "1.0.0",
+    "symbols": [{"symbol_id": "sym_mcu", "kind": "microcontroller"}],
+    "component_instances": [{"instance_id": "u1", "symbol_id": "sym_mcu", "reference": "U1"}],
+    "pins": [{"pin_id": "u1_1", "instance_id": "u1", "number": "1", "name": "VDD", "direction": "power"}],
+    "nets": [{"net_id": "n_vdd", "name": "3V3", "nodes": [{"instance_id": "u1", "pin_number": "1"}]}],
+    "net_labels": [{"net_id": "n_vdd", "label": "3V3"}],
+    "hierarchical_sheets": [{"sheet_id": "root", "name": "Root"}],
+    "annotations": [{"annotation_id": "a1", "text": "Prototype", "scope": "design"}]
+  },
+  "board_ir": {
+    "schema_version": "1.0.0",
+    "board_outline": {"shape": "rectangle", "dimensions_mm": {"width": 30.0, "height": 20.0}},
+    "stackup": [{"name": "Top", "kind": "signal", "thickness_um": 35.0}],
+    "footprints": [{"footprint_id": "fp_u1", "instance_id": "u1", "package": "QFN-48"}],
+    "placement_constraints": [{"constraint_id": "pc1", "kind": "edge_clearance", "expression": ">=2mm"}],
+    "design_rules": [{"constraint_id": "dr1", "kind": "clearance", "expression": ">=0.15mm"}],
+    "net_classes": [{"name": "power", "nets": ["n_vdd"], "rules": {"width": 0.5}}],
+    "keepouts": [{"region_id": "ko1", "region_type": "component", "layers": ["Top"]}],
+    "zones": [{"region_id": "zn1", "region_type": "copper_pour", "layers": ["Top"]}],
+    "routing_intents": [{"net_or_group": "n_vdd", "intent": "short_and_wide"}]
+  },
+  "patch_plan": {
+    "schema_version": "1.0.0",
+    "user_intent": "Add ESD protection",
+    "affected_objects": ["u1", "usb_conn"],
+    "operations": [{"op": "add", "path": "/schematic_ir/component_instances/-", "value": {"instance_id": "d1"}}],
+    "impact_scope": "board",
+    "requires_confirmation": true
+  },
+  "verification_report": {
+    "schema_version": "1.0.0",
+    "tool": "erc",
+    "severity": "warning",
+    "findings": [{"code": "UNDRIVEN_NET", "message": "Net SDA is undriven", "details": {}}],
+    "affected_objects": ["n_sda"],
+    "suggested_fixes": ["Add pull-up resistor"]
+  }
+}
