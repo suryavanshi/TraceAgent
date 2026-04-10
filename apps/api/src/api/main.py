@@ -11,12 +11,15 @@ from sqlalchemy.orm import Session
 from api.db import Base, engine, get_db
 from api.git_snapshots import GitSnapshotRepository
 from api.models import DesignSnapshot, Project, User
+from api.requirements_agent import RequirementsAgent, RequirementsChatMessage as AgentChatMessage, RuleBasedRequirementsProvider
 from api.schemas import (
     ProjectCreate,
     ProjectResponse,
     SnapshotCreate,
     SnapshotResponse,
     SnapshotRevertResponse,
+    RequirementsDeriveRequest,
+    RequirementsDeriveResponse,
 )
 from api.storage import LocalFilesystemStorage
 
@@ -25,6 +28,10 @@ app = FastAPI(title="TraceAgent API", version="0.1.0")
 STORAGE_BASE = os.getenv("ARTIFACT_STORAGE_BASE", "/tmp/traceagent/artifacts")
 SNAPSHOT_BASE = os.getenv("SNAPSHOT_REPO_BASE", "/tmp/traceagent/snapshots")
 storage = LocalFilesystemStorage(STORAGE_BASE)
+
+
+def get_requirements_agent() -> RequirementsAgent:
+    return RequirementsAgent(provider=RuleBasedRequirementsProvider())
 
 
 @app.on_event("startup")
@@ -134,4 +141,26 @@ def revert_snapshot(project_id: UUID, snapshot_id: UUID, db: Session = Depends(g
         project_id=project.id,
         reverted_to_snapshot_id=snapshot.id,
         git_commit_hash=current_hash,
+    )
+
+
+@app.post("/projects/{project_id}/requirements/derive", response_model=RequirementsDeriveResponse)
+def derive_project_requirements(
+    project_id: UUID,
+    payload: RequirementsDeriveRequest,
+    db: Session = Depends(get_db),
+    agent: RequirementsAgent = Depends(get_requirements_agent),
+) -> RequirementsDeriveResponse:
+    project = db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    result = agent.derive(
+        chat_history=[AgentChatMessage.model_validate(message.model_dump()) for message in payload.chat_history],
+        latest_user_request=payload.latest_user_request,
+    )
+    return RequirementsDeriveResponse(
+        proposed_circuit_spec=result.proposed_circuit_spec.model_dump(),
+        summary=result.summary,
+        open_questions=result.open_questions,
     )

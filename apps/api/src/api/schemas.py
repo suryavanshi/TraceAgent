@@ -48,3 +48,19 @@ class SnapshotRevertResponse(BaseModel):
     project_id: UUID
     reverted_to_snapshot_id: UUID
     git_commit_hash: str
+
+
+class RequirementsChatMessage(BaseModel):
+    role: str = Field(pattern="^(system|user|assistant)$")
+    content: str = Field(min_length=1)
+
+
+class RequirementsDeriveRequest(BaseModel):
+    latest_user_request: str = Field(min_length=1)
+    chat_history: list[RequirementsChatMessage] = Field(default_factory=list)
+
+
+class RequirementsDeriveResponse(BaseModel):
+    proposed_circuit_spec: dict
+    summary: str
+    open_questions: list[str] = Field(default_factory=list)
