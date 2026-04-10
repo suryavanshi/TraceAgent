@@ -50,3 +50,7 @@ commands run
 test status
 
 TODOs/blockers
+
+Do not invent APIs, file formats, or tool outputs.
+When an interface is uncertain, isolate it behind an adapter with a TODO and a mocked test.
+Preserve architecture cleanliness even if a feature must be stubbed.
