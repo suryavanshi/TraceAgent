@@ -12,6 +12,8 @@ from api.db import Base, engine, get_db
 from api.git_snapshots import GitSnapshotRepository
 from api.models import DesignSnapshot, Project, User
 from api.requirements_agent import RequirementsAgent, RequirementsChatMessage as AgentChatMessage, RuleBasedRequirementsProvider
+from api.part_catalog import LocalCuratedPartCatalog
+from api.part_resolver import PartConstraint, PartResolver
 from api.schemas import (
     ProjectCreate,
     ProjectResponse,
@@ -20,6 +22,10 @@ from api.schemas import (
     SnapshotRevertResponse,
     RequirementsDeriveRequest,
     RequirementsDeriveResponse,
+    PartReviewRequest,
+    PartReviewResponse,
+    PartReviewBlock,
+    PartReviewCandidate,
 )
 from api.storage import LocalFilesystemStorage
 
@@ -28,6 +34,9 @@ app = FastAPI(title="TraceAgent API", version="0.1.0")
 STORAGE_BASE = os.getenv("ARTIFACT_STORAGE_BASE", "/tmp/traceagent/artifacts")
 SNAPSHOT_BASE = os.getenv("SNAPSHOT_REPO_BASE", "/tmp/traceagent/snapshots")
 storage = LocalFilesystemStorage(STORAGE_BASE)
+
+part_catalog = LocalCuratedPartCatalog()
+part_resolver = PartResolver(part_catalog)
 
 
 def get_requirements_agent() -> RequirementsAgent:
@@ -163,4 +172,48 @@ def derive_project_requirements(
         proposed_circuit_spec=result.proposed_circuit_spec.model_dump(),
         summary=result.summary,
         open_questions=result.open_questions,
+    )
+
+
+@app.post("/projects/{project_id}/parts/review", response_model=PartReviewResponse)
+def review_project_parts(
+    project_id: UUID,
+    payload: PartReviewRequest,
+    db: Session = Depends(get_db),
+) -> PartReviewResponse:
+    project = db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    constraints = {
+        role: PartConstraint(
+            package=constraint.package,
+            min_voltage_v=constraint.min_voltage_v,
+            max_voltage_v=constraint.max_voltage_v,
+            min_current_a=constraint.min_current_a,
+            interface=constraint.interface,
+        )
+        for role, constraint in payload.constraints_by_role.items()
+    }
+
+    result = part_resolver.review(circuit_spec=payload.circuit_spec, constraints=constraints)
+    return PartReviewResponse(
+        block_reviews=[
+            PartReviewBlock(
+                functional_block=review.functional_block,
+                candidates=[
+                    PartReviewCandidate(
+                        mpn=candidate.part.mpn,
+                        functional_role=candidate.functional_role,
+                        confidence=candidate.confidence,
+                        rationale=candidate.rationale,
+                        symbol_ref=candidate.part.symbol_ref.model_dump(),
+                        footprint_ref=candidate.part.footprint_ref.model_dump(),
+                        package=candidate.part.package.name,
+                    )
+                    for candidate in review.candidates
+                ],
+            )
+            for review in result.block_reviews
+        ]
     )

@@ -159,7 +159,8 @@ class RequirementsAgent:
 
         if not structured.proposed_circuit_spec.power_rails:
             questions.append(MISSING_VOLTAGE_QUESTION)
-        if not any(token in source_lc for token in ("ma", "amp", "current", "a ")):
+        has_current_spec = bool(re.search(r"\b\d+(?:\.\d+)?\s?(?:a|ma|amp|amps)\b", source_lc)) or "current" in source_lc
+        if not has_current_spec:
             questions.append(MISSING_CURRENT_LIMIT_QUESTION)
         if not structured.proposed_circuit_spec.interfaces:
             questions.append(MISSING_INTERFACE_QUESTION)
