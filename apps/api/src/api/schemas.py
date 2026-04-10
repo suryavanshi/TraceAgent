@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from design_ir.models import CircuitSpec
+
 
 class ProjectCreate(BaseModel):
     owner_email: str
@@ -64,3 +66,35 @@ class RequirementsDeriveResponse(BaseModel):
     proposed_circuit_spec: dict
     summary: str
     open_questions: list[str] = Field(default_factory=list)
+
+
+class PartConstraintPayload(BaseModel):
+    package: str | None = None
+    min_voltage_v: float | None = None
+    max_voltage_v: float | None = None
+    min_current_a: float | None = None
+    interface: str | None = None
+
+
+class PartReviewRequest(BaseModel):
+    circuit_spec: CircuitSpec
+    constraints_by_role: dict[str, PartConstraintPayload] = Field(default_factory=dict)
+
+
+class PartReviewCandidate(BaseModel):
+    mpn: str
+    functional_role: str
+    confidence: float
+    rationale: list[str] = Field(default_factory=list)
+    symbol_ref: dict[str, str]
+    footprint_ref: dict[str, str]
+    package: str
+
+
+class PartReviewBlock(BaseModel):
+    functional_block: str
+    candidates: list[PartReviewCandidate] = Field(default_factory=list)
+
+
+class PartReviewResponse(BaseModel):
+    block_reviews: list[PartReviewBlock] = Field(default_factory=list)

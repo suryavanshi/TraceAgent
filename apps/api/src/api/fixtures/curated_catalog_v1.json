@@ -1,0 +1,145 @@
+{
+  "version": "v1",
+  "parts": [
+    {
+      "mpn": "AMS1117-3.3",
+      "manufacturer": "Advanced Monolithic Systems",
+      "description": "1A linear regulator, fixed 3.3V",
+      "functional_roles": ["regulator", "power"],
+      "symbol_ref": {
+        "library": "Regulator_Linear",
+        "identifier": "AMS1117-3.3"
+      },
+      "footprint_ref": {
+        "library": "Package_TO_SOT_SMD",
+        "identifier": "SOT-223-3_TabPin2"
+      },
+      "package": {
+        "name": "SOT-223"
+      },
+      "parametric_attributes": {
+        "min_input_voltage_v": 4.5,
+        "max_input_voltage_v": 15.0,
+        "output_voltage_v": 3.3,
+        "max_current_a": 1.0,
+        "extra": {
+          "topology": "linear"
+        }
+      },
+      "lifecycle_status": "active",
+      "approved_alternates": {
+        "parts": [
+          {
+            "mpn": "LD1117S33TR",
+            "rationale": "Pin-compatible 3.3V LDO option"
+          }
+        ]
+      }
+    },
+    {
+      "mpn": "STM32F411CEU6",
+      "manufacturer": "STMicroelectronics",
+      "description": "ARM Cortex-M4 MCU",
+      "functional_roles": ["mcu", "controller"],
+      "symbol_ref": {
+        "library": "MCU_ST_STM32F4",
+        "identifier": "STM32F411CEUx"
+      },
+      "footprint_ref": {
+        "library": "Package_QFP",
+        "identifier": "LQFP-48_7x7mm_P0.5mm"
+      },
+      "package": {
+        "name": "LQFP-48"
+      },
+      "parametric_attributes": {
+        "min_input_voltage_v": 1.7,
+        "max_input_voltage_v": 3.6,
+        "max_current_a": 0.12,
+        "extra": {
+          "flash_kb": 512,
+          "io_pins": 37
+        }
+      },
+      "lifecycle_status": "active",
+      "approved_alternates": {
+        "parts": [
+          {
+            "mpn": "STM32F401CCU6",
+            "rationale": "Close-family MCU with similar peripherals"
+          }
+        ]
+      }
+    },
+    {
+      "mpn": "TYPE-C-31-M-12",
+      "manufacturer": "HRO",
+      "description": "USB Type-C receptacle, USB2.0",
+      "functional_roles": ["connector", "usb"],
+      "symbol_ref": {
+        "library": "Connector_USB",
+        "identifier": "USB_C_Receptacle_USB2.0"
+      },
+      "footprint_ref": {
+        "library": "Connector_USB",
+        "identifier": "USB_C_Receptacle_HRO_TYPE-C-31-M-12"
+      },
+      "package": {
+        "name": "TH-SMT"
+      },
+      "parametric_attributes": {
+        "min_input_voltage_v": 0.0,
+        "max_input_voltage_v": 20.0,
+        "max_current_a": 3.0,
+        "interface": "USB2.0",
+        "extra": {
+          "orientation": "reversible"
+        }
+      },
+      "lifecycle_status": "active",
+      "approved_alternates": {
+        "parts": [
+          {
+            "mpn": "105450-0101",
+            "rationale": "Alternate USB-C receptacle footprint class"
+          }
+        ]
+      }
+    },
+    {
+      "mpn": "USBLC6-2SC6",
+      "manufacturer": "STMicroelectronics",
+      "description": "Low-capacitance ESD protection array",
+      "functional_roles": ["esd", "protection"],
+      "symbol_ref": {
+        "library": "Power_Protection",
+        "identifier": "USBLC6-2SC6"
+      },
+      "footprint_ref": {
+        "library": "Package_TO_SOT_SMD",
+        "identifier": "SOT-23-6"
+      },
+      "package": {
+        "name": "SOT-23-6"
+      },
+      "parametric_attributes": {
+        "min_input_voltage_v": 0.0,
+        "max_input_voltage_v": 5.5,
+        "max_current_a": 0.005,
+        "interface": "USB2.0",
+        "extra": {
+          "channel_count": 2
+        }
+      },
+      "lifecycle_status": "active",
+      "approved_alternates": {
+        "parts": [
+          {
+            "mpn": "TPD2EUSB30",
+            "rationale": "Equivalent USB line protection function"
+          }
+        ]
+      }
+    }
+  ]
+}
