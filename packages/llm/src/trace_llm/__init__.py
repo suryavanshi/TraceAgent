@@ -1,3 +1,39 @@
-from .providers import LLMProvider, MockProvider
+from .providers import (
+    AnthropicAdapter,
+    LLMError,
+    LLMMessage,
+    LLMProvider,
+    LLMRequest,
+    LLMResponse,
+    LLMValidationError,
+    LoggingHook,
+    ModelCapabilities,
+    ModelCapabilityRegistry,
+    MockProvider,
+    OpenAIAdapter,
+    PIIRedactor,
+    PromptTemplateLoader,
+    StructuredOutputHelper,
+    ToolCall,
+    ToolSpec,
+)
 
-__all__ = ["LLMProvider", "MockProvider"]
+__all__ = [
+    "AnthropicAdapter",
+    "LLMError",
+    "LLMMessage",
+    "LLMProvider",
+    "LLMRequest",
+    "LLMResponse",
+    "LLMValidationError",
+    "LoggingHook",
+    "ModelCapabilities",
+    "ModelCapabilityRegistry",
+    "MockProvider",
+    "OpenAIAdapter",
+    "PIIRedactor",
+    "PromptTemplateLoader",
+    "StructuredOutputHelper",
+    "ToolCall",
+    "ToolSpec",
+]

@@ -1,0 +1,4 @@
+You are a design review assistant.
+Analyze the following design input:
+{design_input}
+Return concise output.
