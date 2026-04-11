@@ -28,6 +28,9 @@ type SchematicSynthesisResponse = {
     nets: Array<{ net_id: string; name?: string | null; nodes: Array<{ instance_id: string; pin_number: string }> }>;
   };
   warnings: Array<{ code: string; message: string; severity: string }>;
+  schematic_svg: string;
+  schematic_svg_path: string;
+  schematic_pdf_path: string;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -45,6 +48,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [synthesis, setSynthesis] = useState<SchematicSynthesisResponse | null>(null);
   const [loadingSynthesis, setLoadingSynthesis] = useState(false);
+  const [activeTab, setActiveTab] = useState<"summary" | "schematic">("summary");
 
   useEffect(() => {
     const load = async () => {
@@ -239,6 +243,10 @@ export default function HomePage() {
 
       <section style={{ marginTop: "2rem" }}>
         <h2>Schematic Synthesis</h2>
+        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem" }}>
+          <button type="button" onClick={() => setActiveTab("summary")}>Summary</button>
+          <button type="button" onClick={() => setActiveTab("schematic")}>Schematic</button>
+        </div>
         <p>Generate textual schematic structure from CircuitSpec and selected parts.</p>
         <button type="button" onClick={onSynthesizeSchematic} disabled={loadingSynthesis || !requirements}>
           {loadingSynthesis ? "Synthesizing…" : "Generate SchematicIR"}
@@ -246,7 +254,7 @@ export default function HomePage() {
 
         {!synthesis ? (
           <p style={{ marginTop: "0.75rem" }}>No schematic generated yet.</p>
-        ) : (
+        ) : activeTab === "summary" ? (
           <div style={{ marginTop: "1rem", display: "grid", gap: "1rem" }}>
             <div>
               <h3>Components</h3>
@@ -282,6 +290,15 @@ export default function HomePage() {
                 </ul>
               )}
             </div>
+          </div>
+        ) : (
+          <div style={{ marginTop: "1rem" }}>
+            <h3>Schematic Preview (SVG)</h3>
+            <div style={{ border: "1px solid #ddd", padding: "0.5rem", overflowX: "auto" }} dangerouslySetInnerHTML={{ __html: synthesis.schematic_svg }} />
+            <p style={{ marginTop: "0.5rem" }}>
+              SVG artifact: <code>{synthesis.schematic_svg_path}</code><br />
+              PDF artifact: <code>{synthesis.schematic_pdf_path}</code>
+            </p>
           </div>
         )}
       </section>

@@ -128,3 +128,9 @@ class SchematicSynthesisResponse(BaseModel):
     warnings: list[SchematicLintWarningPayload] = Field(default_factory=list)
     provenance: list[dict[str, str]] = Field(default_factory=list)
     saved_path: str
+    kicad_project_path: str
+    kicad_schematic_path: str
+    kicad_sym_lib_table_path: str
+    schematic_svg_path: str
+    schematic_pdf_path: str
+    schematic_svg: str
