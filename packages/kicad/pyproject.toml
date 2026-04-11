@@ -5,6 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "traceagent-kicad"
 version = "0.1.0"
+dependencies = ["traceagent-design-ir"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

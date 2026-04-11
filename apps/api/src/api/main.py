@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import tempfile
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -33,6 +34,7 @@ from api.schemas import (
     SchematicLintWarningPayload,
 )
 from api.storage import LocalFilesystemStorage
+from trace_kicad.runner import compile_and_export_project
 
 app = FastAPI(title="TraceAgent API", version="0.1.0")
 
@@ -242,7 +244,35 @@ def synthesize_project_schematic(
 
     artifact_dir = f"{project.artifact_root_dir}/generated"
     relative_path = "schematic_ir/schematic_ir.json"
-    saved_path = storage.write_text(artifact_dir, relative_path, json.dumps(synthesis.model_dump(), indent=2))
+    saved_path = storage.write_text(artifact_dir, relative_path, json.dumps(synthesis.model_dump(), indent=2, sort_keys=True))
+
+    with tempfile.TemporaryDirectory(prefix="traceagent_kicad_") as temp_dir:
+        compiled_paths = compile_and_export_project(
+            schematic_ir=synthesis.schematic_ir,
+            project_name=project.name,
+            output_dir=Path(temp_dir),
+        )
+
+        kicad_project_content = Path(compiled_paths["project"]).read_text(encoding="utf-8")
+        kicad_schematic_content = Path(compiled_paths["schematic"]).read_text(encoding="utf-8")
+        kicad_sym_lib_table_content = Path(compiled_paths["sym_lib_table"]).read_text(encoding="utf-8")
+        kicad_svg_content = Path(compiled_paths["svg"]).read_text(encoding="utf-8")
+        kicad_pdf_bytes = Path(compiled_paths["pdf"]).read_bytes()
+
+    project_file_name = Path(compiled_paths["project"]).name
+    schematic_file_name = Path(compiled_paths["schematic"]).name
+    svg_file_name = Path(compiled_paths["svg"]).name
+    pdf_file_name = Path(compiled_paths["pdf"]).name
+
+    kicad_project_path = storage.write_text(artifact_dir, f"kicad/{project_file_name}", kicad_project_content)
+    kicad_schematic_path = storage.write_text(artifact_dir, f"kicad/{schematic_file_name}", kicad_schematic_content)
+    kicad_sym_lib_table_path = storage.write_text(artifact_dir, "kicad/sym-lib-table", kicad_sym_lib_table_content)
+    schematic_svg_path = storage.write_text(artifact_dir, f"exports/{svg_file_name}", kicad_svg_content)
+
+    pdf_target = Path(STORAGE_BASE) / artifact_dir / "exports" / pdf_file_name
+    pdf_target.parent.mkdir(parents=True, exist_ok=True)
+    pdf_target.write_bytes(kicad_pdf_bytes)
+    schematic_pdf_path = str(pdf_target)
 
     return SchematicSynthesisResponse(
         schematic_ir=synthesis.schematic_ir,
@@ -254,4 +284,10 @@ def synthesize_project_schematic(
         warnings=[SchematicLintWarningPayload.model_validate(w.model_dump()) for w in synthesis.warnings],
         provenance=[item.model_dump() for item in synthesis.provenance],
         saved_path=saved_path,
+        kicad_project_path=kicad_project_path,
+        kicad_schematic_path=kicad_schematic_path,
+        kicad_sym_lib_table_path=kicad_sym_lib_table_path,
+        schematic_svg_path=schematic_svg_path,
+        schematic_pdf_path=schematic_pdf_path,
+        schematic_svg=kicad_svg_content,
     )
