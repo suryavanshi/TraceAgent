@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from design_ir.models import CircuitSpec
+from design_ir.models import CircuitSpec, SchematicIR
 
 
 class ProjectCreate(BaseModel):
@@ -98,3 +98,33 @@ class PartReviewBlock(BaseModel):
 
 class PartReviewResponse(BaseModel):
     block_reviews: list[PartReviewBlock] = Field(default_factory=list)
+
+
+class SchematicSelectedPart(BaseModel):
+    functional_role: str
+    mpn: str
+    symbol_id: str
+    reference_prefix: str = "U"
+
+
+class SchematicSynthesisRequest(BaseModel):
+    circuit_spec: CircuitSpec
+    selected_parts: list[SchematicSelectedPart] = Field(default_factory=list)
+
+
+class SchematicLintWarningPayload(BaseModel):
+    code: str
+    message: str
+    severity: str
+
+
+class SchematicSynthesisResponse(BaseModel):
+    schematic_ir: SchematicIR
+    power_tree: list[dict[str, str]] = Field(default_factory=list)
+    support_passives: list[str] = Field(default_factory=list)
+    protection_circuitry: list[str] = Field(default_factory=list)
+    programming_interfaces: list[str] = Field(default_factory=list)
+    decoupling_recommendations: list[dict[str, str]] = Field(default_factory=list)
+    warnings: list[SchematicLintWarningPayload] = Field(default_factory=list)
+    provenance: list[dict[str, str]] = Field(default_factory=list)
+    saved_path: str
