@@ -21,6 +21,15 @@ type RequirementsResponse = {
   open_questions: string[];
 };
 
+
+type SchematicSynthesisResponse = {
+  schematic_ir: {
+    component_instances: Array<{ instance_id: string; reference: string; value?: string | null }>;
+    nets: Array<{ net_id: string; name?: string | null; nodes: Array<{ instance_id: string; pin_number: string }> }>;
+  };
+  warnings: Array<{ code: string; message: string; severity: string }>;
+};
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export default function HomePage() {
@@ -34,6 +43,8 @@ export default function HomePage() {
   );
   const [loadingRequirements, setLoadingRequirements] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [synthesis, setSynthesis] = useState<SchematicSynthesisResponse | null>(null);
+  const [loadingSynthesis, setLoadingSynthesis] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -84,6 +95,39 @@ export default function HomePage() {
         return { role: "user", content: line.replace(/^user:\s*/i, "") };
       });
   }, [chatHistory]);
+
+
+
+  const onSynthesizeSchematic = async () => {
+    setError(null);
+    setLoadingSynthesis(true);
+    try {
+      if (!selectedProjectId || !requirements) {
+        setError("Derive requirements first before schematic synthesis.");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE}/projects/${selectedProjectId}/schematic/synthesize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          circuit_spec: requirements.proposed_circuit_spec,
+          selected_parts: [],
+        }),
+      });
+
+      if (!response.ok) {
+        setError("Schematic synthesis failed.");
+        return;
+      }
+
+      setSynthesis((await response.json()) as SchematicSynthesisResponse);
+    } catch {
+      setError("Schematic synthesis failed.");
+    } finally {
+      setLoadingSynthesis(false);
+    }
+  };
 
   const onDeriveRequirements = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -190,6 +234,55 @@ export default function HomePage() {
               {JSON.stringify(requirements.proposed_circuit_spec, null, 2)}
             </pre>
           </>
+        )}
+      </section>
+
+      <section style={{ marginTop: "2rem" }}>
+        <h2>Schematic Synthesis</h2>
+        <p>Generate textual schematic structure from CircuitSpec and selected parts.</p>
+        <button type="button" onClick={onSynthesizeSchematic} disabled={loadingSynthesis || !requirements}>
+          {loadingSynthesis ? "Synthesizing…" : "Generate SchematicIR"}
+        </button>
+
+        {!synthesis ? (
+          <p style={{ marginTop: "0.75rem" }}>No schematic generated yet.</p>
+        ) : (
+          <div style={{ marginTop: "1rem", display: "grid", gap: "1rem" }}>
+            <div>
+              <h3>Components</h3>
+              <ul>
+                {synthesis.schematic_ir.component_instances.map((component) => (
+                  <li key={component.instance_id}>
+                    <code>{component.reference}</code> — {component.value ?? component.instance_id}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3>Nets</h3>
+              <ul>
+                {synthesis.schematic_ir.nets.map((net) => (
+                  <li key={net.net_id}>
+                    <strong>{net.name ?? net.net_id}</strong> ({net.nodes.length} nodes)
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3>Warnings</h3>
+              {synthesis.warnings.length === 0 ? (
+                <p>No lint warnings.</p>
+              ) : (
+                <ul>
+                  {synthesis.warnings.map((warning, index) => (
+                    <li key={`${warning.code}-${index}`}>
+                      <code>{warning.code}</code> — {warning.message}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
         )}
       </section>
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from uuid import UUID
@@ -14,6 +15,7 @@ from api.models import DesignSnapshot, Project, User
 from api.requirements_agent import RequirementsAgent, RequirementsChatMessage as AgentChatMessage, RuleBasedRequirementsProvider
 from api.part_catalog import LocalCuratedPartCatalog
 from api.part_resolver import PartConstraint, PartResolver
+from api.schematic_synthesis import SchematicSynthesisAgent, SelectedPart
 from api.schemas import (
     ProjectCreate,
     ProjectResponse,
@@ -26,6 +28,9 @@ from api.schemas import (
     PartReviewResponse,
     PartReviewBlock,
     PartReviewCandidate,
+    SchematicSynthesisRequest,
+    SchematicSynthesisResponse,
+    SchematicLintWarningPayload,
 )
 from api.storage import LocalFilesystemStorage
 
@@ -37,6 +42,7 @@ storage = LocalFilesystemStorage(STORAGE_BASE)
 
 part_catalog = LocalCuratedPartCatalog()
 part_resolver = PartResolver(part_catalog)
+schematic_synthesis_agent = SchematicSynthesisAgent()
 
 
 def get_requirements_agent() -> RequirementsAgent:
@@ -216,4 +222,36 @@ def review_project_parts(
             )
             for review in result.block_reviews
         ]
+    )
+
+
+@app.post("/projects/{project_id}/schematic/synthesize", response_model=SchematicSynthesisResponse)
+def synthesize_project_schematic(
+    project_id: UUID,
+    payload: SchematicSynthesisRequest,
+    db: Session = Depends(get_db),
+) -> SchematicSynthesisResponse:
+    project = db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    synthesis = schematic_synthesis_agent.synthesize(
+        circuit_spec=payload.circuit_spec,
+        selected_parts=[SelectedPart.model_validate(part.model_dump()) for part in payload.selected_parts],
+    )
+
+    artifact_dir = f"{project.artifact_root_dir}/generated"
+    relative_path = "schematic_ir/schematic_ir.json"
+    saved_path = storage.write_text(artifact_dir, relative_path, json.dumps(synthesis.model_dump(), indent=2))
+
+    return SchematicSynthesisResponse(
+        schematic_ir=synthesis.schematic_ir,
+        power_tree=[edge.model_dump() for edge in synthesis.power_tree],
+        support_passives=synthesis.support_passives,
+        protection_circuitry=synthesis.protection_circuitry,
+        programming_interfaces=synthesis.programming_interfaces,
+        decoupling_recommendations=[item.model_dump() for item in synthesis.decoupling_recommendations],
+        warnings=[SchematicLintWarningPayload.model_validate(w.model_dump()) for w in synthesis.warnings],
+        provenance=[item.model_dump() for item in synthesis.provenance],
+        saved_path=saved_path,
     )
