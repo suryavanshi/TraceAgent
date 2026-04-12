@@ -320,6 +320,8 @@ def synthesize_project_schematic(
             "footprints": len(board_ir.footprints),
             "mounting_holes": len(board_ir.mounting_holes),
             "stackup_layers": len(board_ir.stackup),
+            "placement_decisions": len(board_ir.placement_decisions),
+            "placement_overlay": board_ir.placement_visualization,
         },
     )
 

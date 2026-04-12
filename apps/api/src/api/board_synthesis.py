@@ -17,6 +17,8 @@ from design_ir.models import (
     StackupLayer,
 )
 
+from api.placement_engine import DeterministicPlacementEngine
+
 
 @dataclass
 class BoardRulesBuilder:
@@ -99,6 +101,7 @@ class BoardRulesBuilder:
 @dataclass
 class BoardIRGenerator:
     rules_builder: BoardRulesBuilder = field(default_factory=BoardRulesBuilder)
+    placement_engine: DeterministicPlacementEngine = field(default_factory=DeterministicPlacementEngine)
 
     def generate(self, circuit_spec: CircuitSpec, schematic_ir: SchematicIR) -> BoardIR:
         width_mm = self._extract_dimension(circuit_spec.mechanical_constraints, "width", 100.0)
@@ -127,18 +130,20 @@ class BoardIRGenerator:
 
         net_classes, design_rules, zones = self.rules_builder.build(circuit_spec, schematic_ir)
 
-        return BoardIR(
+        board_ir = BoardIR(
             board_outline=BoardOutline(shape=shape, dimensions_mm={"width": width_mm, "height": height_mm}),
             stackup=stackup,
             footprints=footprints,
             mounting_holes=mounting_holes,
             fixed_edge_connectors=fixed_connectors,
+            placement_constraints=self._default_placement_constraints(fixed_connectors),
             design_rules=design_rules,
             net_classes=net_classes,
             keepouts=keepouts,
             zones=zones,
             routing_intents=[RoutingIntent(net_or_group="*", intent="unrouted_template")],
         )
+        return self.placement_engine.place(board_ir=board_ir, schematic_ir=schematic_ir)
 
     def _to_footprint(self, component) -> Footprint:
         package = component.properties.get("package") or component.properties.get("footprint") or "GENERIC_SMD"
@@ -176,6 +181,18 @@ class BoardIRGenerator:
                     )
                 )
         return connectors
+
+    def _default_placement_constraints(self, connectors: list[FixedEdgeConnector]) -> list[Constraint]:
+        constraints: list[Constraint] = []
+        for connector in connectors:
+            constraints.append(
+                Constraint(
+                    constraint_id=f"place_{connector.instance_id}_edge",
+                    kind="edge_locked",
+                    expression=f"instance_id={connector.instance_id};edge={connector.edge};offset_mm={connector.offset_mm}",
+                )
+            )
+        return constraints
 
     def _extract_dimension(self, constraints: list[str], dim_name: str, default: float) -> float:
         for item in constraints:

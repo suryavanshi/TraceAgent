@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -137,7 +138,7 @@ class SchematicSynthesisResponse(BaseModel):
     schematic_svg: str
     board_ir_path: str
     kicad_pcb_path: str
-    board_metadata: dict[str, str | int | float]
+    board_metadata: dict[str, Any]
 
 
 class VerificationRunResponse(BaseModel):

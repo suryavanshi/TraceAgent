@@ -33,7 +33,7 @@ type SchematicSynthesisResponse = {
   schematic_pdf_path: string;
   board_ir_path: string;
   kicad_pcb_path: string;
-  board_metadata: Record<string, string | number>;
+  board_metadata: Record<string, unknown>;
 };
 
 type VerificationFinding = {
@@ -369,10 +369,26 @@ export default function HomePage() {
               <p style={{ margin: 0 }}>Initial board template generated. No autorouting applied.</p>
               <ul>
                 {Object.entries(synthesis.board_metadata).map(([key, value]) => (
-                  <li key={key}><code>{key}</code>: {String(value)}</li>
+                  <li key={key}>
+                    <code>{key}</code>: {typeof value === "object" ? JSON.stringify(value) : String(value)}
+                  </li>
                 ))}
               </ul>
             </div>
+            {Array.isArray((synthesis.board_metadata.placement_overlay as { overlays?: Array<Record<string, unknown>> } | undefined)?.overlays) ? (
+              <div style={{ marginTop: "1rem", border: "1px solid #ddd", borderRadius: 8, padding: "0.75rem" }}>
+                <h4 style={{ marginTop: 0 }}>Placement Overlays</h4>
+                <ul>
+                  {((synthesis.board_metadata.placement_overlay as { overlays: Array<Record<string, unknown>> }).overlays).map((overlay, idx) => (
+                    <li key={`${overlay.instance_id ?? "overlay"}-${idx}`}>
+                      <strong>{String(overlay.instance_id ?? "unknown")}</strong> @
+                      ({String(overlay.x_mm ?? "?")}, {String(overlay.y_mm ?? "?")}) —
+                      {String(overlay.group ?? "ungrouped")}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             <p style={{ marginTop: "0.5rem" }}>
               BoardIR artifact: <code>{synthesis.board_ir_path}</code><br />
               KiCad PCB artifact: <code>{synthesis.kicad_pcb_path}</code>
