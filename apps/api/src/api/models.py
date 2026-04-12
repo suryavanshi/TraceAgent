@@ -92,6 +92,9 @@ class VerificationRun(Base):
     snapshot_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("design_snapshots.id", ondelete="SET NULL"), nullable=True)
     status: Mapped[str] = mapped_column(String(64), nullable=False)
     report_artifact_path: Mapped[str] = mapped_column(Text, nullable=False)
+    raw_output_artifact_path: Mapped[str] = mapped_column(Text, nullable=False)
+    normalized_output_artifact_path: Mapped[str] = mapped_column(Text, nullable=False)
+    explanation_artifact_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     project: Mapped[Project] = relationship(back_populates="verification_runs")

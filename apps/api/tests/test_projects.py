@@ -87,3 +87,34 @@ def test_snapshot_creation(tmp_path: Path) -> None:
     assert snapshots_response.status_code == 200
     assert len(snapshots_response.json()) == 1
     assert snapshots_response.json()[0]["artifact_dir"].endswith("initial_layout")
+
+
+def test_verification_runs(tmp_path: Path, monkeypatch) -> None:
+    client = build_test_client(tmp_path)
+    project = client.post(
+        "/projects",
+        json={"owner_email": "verify@example.com", "name": "verify-board", "description": "verify"},
+    ).json()
+
+    monkeypatch.setattr(
+        "api.main.run_kicad_erc",
+        lambda _path: {
+            "tool": "kicad-erc",
+            "status": "completed",
+            "issues": [{"id": "ERC_PWR", "severity": "warning", "message": "power input not driven U1 Net-/3V3"}],
+        },
+    )
+
+    create_run_response = client.post(f"/projects/{project['id']}/verification-runs")
+    assert create_run_response.status_code == 200
+    run_payload = create_run_response.json()
+    assert run_payload["normalized_output"]["tool"] == "kicad-erc"
+    assert run_payload["status"] == "completed"
+
+    list_response = client.get(f"/projects/{project['id']}/verification-runs")
+    assert list_response.status_code == 200
+    assert len(list_response.json()) == 1
+
+    detail_response = client.get(f"/projects/{project['id']}/verification-runs/{run_payload['id']}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["normalized_output"]["findings"][0]["code"] == "ERC_PWR"

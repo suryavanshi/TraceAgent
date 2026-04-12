@@ -134,3 +134,21 @@ class SchematicSynthesisResponse(BaseModel):
     schematic_svg_path: str
     schematic_pdf_path: str
     schematic_svg: str
+
+
+class VerificationRunResponse(BaseModel):
+    id: UUID
+    project_id: UUID
+    snapshot_id: UUID | None
+    status: str
+    report_artifact_path: str
+    raw_output_artifact_path: str
+    normalized_output_artifact_path: str
+    explanation_artifact_path: str | None
+    created_at: datetime
+
+
+class VerificationRunDetailResponse(VerificationRunResponse):
+    raw_output: dict
+    normalized_output: dict
+    explanations: list[dict]
