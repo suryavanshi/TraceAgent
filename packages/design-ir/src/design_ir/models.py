@@ -192,6 +192,17 @@ class Constraint(StrictModel):
     expression: str = Field(min_length=1)
 
 
+class PlacementDecision(StrictModel):
+    decision_id: str = Field(min_length=1)
+    footprint_id: str = Field(min_length=1)
+    instance_id: str = Field(min_length=1)
+    priority_group: str = Field(min_length=1)
+    score: float
+    rationale: list[str] = Field(default_factory=list)
+    anchors: list[str] = Field(default_factory=list)
+    constraints_applied: list[str] = Field(default_factory=list)
+
+
 class NetClass(StrictModel):
     name: str = Field(min_length=1)
     nets: list[str] = Field(default_factory=list)
@@ -222,6 +233,8 @@ class BoardIR(VersionedModel):
     keepouts: list[Region] = Field(default_factory=list)
     zones: list[Region] = Field(default_factory=list)
     routing_intents: list[RoutingIntent] = Field(default_factory=list)
+    placement_decisions: list[PlacementDecision] = Field(default_factory=list)
+    placement_visualization: dict[str, Any] = Field(default_factory=dict)
 
 
 class PatchOperation(StrictModel):

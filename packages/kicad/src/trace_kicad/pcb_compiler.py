@@ -47,6 +47,7 @@ class PCBCompiler:
                 "height_mm": height,
                 "footprint_count": len(board_ir.footprints),
                 "net_class_count": len(board_ir.net_classes),
+                "placement_decision_count": len(board_ir.placement_decisions),
             },
         )
 
