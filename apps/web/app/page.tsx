@@ -31,6 +31,9 @@ type SchematicSynthesisResponse = {
   schematic_svg: string;
   schematic_svg_path: string;
   schematic_pdf_path: string;
+  board_ir_path: string;
+  kicad_pcb_path: string;
+  board_metadata: Record<string, string | number>;
 };
 
 type VerificationFinding = {
@@ -69,7 +72,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [synthesis, setSynthesis] = useState<SchematicSynthesisResponse | null>(null);
   const [loadingSynthesis, setLoadingSynthesis] = useState(false);
-  const [activeTab, setActiveTab] = useState<"summary" | "schematic">("summary");
+  const [activeTab, setActiveTab] = useState<"summary" | "schematic" | "pcb">("summary");
   const [verification, setVerification] = useState<VerificationRunDetail | null>(null);
   const [loadingVerification, setLoadingVerification] = useState(false);
   const [highlightedObject, setHighlightedObject] = useState<string | null>(null);
@@ -302,6 +305,7 @@ export default function HomePage() {
         <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem" }}>
           <button type="button" onClick={() => setActiveTab("summary")}>Summary</button>
           <button type="button" onClick={() => setActiveTab("schematic")}>Schematic</button>
+          <button type="button" onClick={() => setActiveTab("pcb")}>PCB</button>
         </div>
         <p>Generate textual schematic structure from CircuitSpec and selected parts.</p>
         <button type="button" onClick={onSynthesizeSchematic} disabled={loadingSynthesis || !requirements}>
@@ -349,13 +353,29 @@ export default function HomePage() {
               )}
             </div>
           </div>
-        ) : (
+        ) : activeTab === "schematic" ? (
           <div style={{ marginTop: "1rem" }}>
             <h3>Schematic Preview (SVG)</h3>
             <div style={{ border: "1px solid #ddd", padding: "0.5rem", overflowX: "auto" }} dangerouslySetInnerHTML={{ __html: synthesis.schematic_svg }} />
             <p style={{ marginTop: "0.5rem" }}>
               SVG artifact: <code>{synthesis.schematic_svg_path}</code><br />
               PDF artifact: <code>{synthesis.schematic_pdf_path}</code>
+            </p>
+          </div>
+        ) : (
+          <div style={{ marginTop: "1rem" }}>
+            <h3>PCB Preview (Placeholder)</h3>
+            <div style={{ border: "1px dashed #999", borderRadius: 8, padding: "1rem", background: "#fafafa" }}>
+              <p style={{ margin: 0 }}>Initial board template generated. No autorouting applied.</p>
+              <ul>
+                {Object.entries(synthesis.board_metadata).map(([key, value]) => (
+                  <li key={key}><code>{key}</code>: {String(value)}</li>
+                ))}
+              </ul>
+            </div>
+            <p style={{ marginTop: "0.5rem" }}>
+              BoardIR artifact: <code>{synthesis.board_ir_path}</code><br />
+              KiCad PCB artifact: <code>{synthesis.kicad_pcb_path}</code>
             </p>
           </div>
         )}

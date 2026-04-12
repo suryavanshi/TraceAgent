@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from design_ir.models import CircuitSpec, SchematicIR
+from design_ir.models import BoardIR, CircuitSpec, SchematicIR
 
 
 class ProjectCreate(BaseModel):
@@ -120,6 +120,7 @@ class SchematicLintWarningPayload(BaseModel):
 
 class SchematicSynthesisResponse(BaseModel):
     schematic_ir: SchematicIR
+    board_ir: BoardIR
     power_tree: list[dict[str, str]] = Field(default_factory=list)
     support_passives: list[str] = Field(default_factory=list)
     protection_circuitry: list[str] = Field(default_factory=list)
@@ -134,6 +135,9 @@ class SchematicSynthesisResponse(BaseModel):
     schematic_svg_path: str
     schematic_pdf_path: str
     schematic_svg: str
+    board_ir_path: str
+    kicad_pcb_path: str
+    board_metadata: dict[str, str | int | float]
 
 
 class VerificationRunResponse(BaseModel):

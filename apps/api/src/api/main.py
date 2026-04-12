@@ -16,6 +16,7 @@ from api.models import DesignSnapshot, Project, User, VerificationRun
 from api.requirements_agent import RequirementsAgent, RequirementsChatMessage as AgentChatMessage, RuleBasedRequirementsProvider
 from api.part_catalog import LocalCuratedPartCatalog
 from api.part_resolver import PartConstraint, PartResolver
+from api.board_synthesis import BoardIRGenerator
 from api.schematic_synthesis import SchematicSynthesisAgent, SelectedPart
 from api.schemas import (
     ProjectCreate,
@@ -36,7 +37,7 @@ from api.schemas import (
     VerificationRunResponse,
 )
 from api.storage import LocalFilesystemStorage
-from trace_kicad.runner import compile_and_export_project
+from trace_kicad.runner import compile_and_export_project, compile_board_project
 from trace_verification import explain_finding, normalize_report, run_kicad_erc
 
 app = FastAPI(title="TraceAgent API", version="0.1.0")
@@ -48,6 +49,7 @@ storage = LocalFilesystemStorage(STORAGE_BASE)
 part_catalog = LocalCuratedPartCatalog()
 part_resolver = PartResolver(part_catalog)
 schematic_synthesis_agent = SchematicSynthesisAgent()
+board_ir_generator = BoardIRGenerator()
 
 
 def get_requirements_agent() -> RequirementsAgent:
@@ -248,9 +250,21 @@ def synthesize_project_schematic(
     artifact_dir = f"{project.artifact_root_dir}/generated"
     relative_path = "schematic_ir/schematic_ir.json"
     saved_path = storage.write_text(artifact_dir, relative_path, json.dumps(synthesis.model_dump(), indent=2, sort_keys=True))
+    board_ir = board_ir_generator.generate(circuit_spec=payload.circuit_spec, schematic_ir=synthesis.schematic_ir)
+    board_ir_path = storage.write_text(
+        artifact_dir,
+        "board_ir/board_ir.json",
+        json.dumps(board_ir.model_dump(), indent=2, sort_keys=True),
+    )
 
     with tempfile.TemporaryDirectory(prefix="traceagent_kicad_") as temp_dir:
         compiled_paths = compile_and_export_project(
+            schematic_ir=synthesis.schematic_ir,
+            project_name=project.name,
+            output_dir=Path(temp_dir),
+        )
+        compiled_board_paths = compile_board_project(
+            board_ir=board_ir,
             schematic_ir=synthesis.schematic_ir,
             project_name=project.name,
             output_dir=Path(temp_dir),
@@ -261,15 +275,18 @@ def synthesize_project_schematic(
         kicad_sym_lib_table_content = Path(compiled_paths["sym_lib_table"]).read_text(encoding="utf-8")
         kicad_svg_content = Path(compiled_paths["svg"]).read_text(encoding="utf-8")
         kicad_pdf_bytes = Path(compiled_paths["pdf"]).read_bytes()
+        kicad_pcb_content = Path(compiled_board_paths["pcb"]).read_text(encoding="utf-8")
 
     project_file_name = Path(compiled_paths["project"]).name
     schematic_file_name = Path(compiled_paths["schematic"]).name
     svg_file_name = Path(compiled_paths["svg"]).name
     pdf_file_name = Path(compiled_paths["pdf"]).name
+    pcb_file_name = Path(compiled_board_paths["pcb"]).name
 
     kicad_project_path = storage.write_text(artifact_dir, f"kicad/{project_file_name}", kicad_project_content)
     kicad_schematic_path = storage.write_text(artifact_dir, f"kicad/{schematic_file_name}", kicad_schematic_content)
     kicad_sym_lib_table_path = storage.write_text(artifact_dir, "kicad/sym-lib-table", kicad_sym_lib_table_content)
+    kicad_pcb_path = storage.write_text(artifact_dir, f"kicad/{pcb_file_name}", kicad_pcb_content)
     schematic_svg_path = storage.write_text(artifact_dir, f"exports/{svg_file_name}", kicad_svg_content)
 
     pdf_target = Path(STORAGE_BASE) / artifact_dir / "exports" / pdf_file_name
@@ -279,6 +296,7 @@ def synthesize_project_schematic(
 
     return SchematicSynthesisResponse(
         schematic_ir=synthesis.schematic_ir,
+        board_ir=board_ir,
         power_tree=[edge.model_dump() for edge in synthesis.power_tree],
         support_passives=synthesis.support_passives,
         protection_circuitry=synthesis.protection_circuitry,
@@ -293,6 +311,16 @@ def synthesize_project_schematic(
         schematic_svg_path=schematic_svg_path,
         schematic_pdf_path=schematic_pdf_path,
         schematic_svg=kicad_svg_content,
+        board_ir_path=board_ir_path,
+        kicad_pcb_path=kicad_pcb_path,
+        board_metadata={
+            "shape": board_ir.board_outline.shape,
+            "width_mm": board_ir.board_outline.dimensions_mm.get("width", 0),
+            "height_mm": board_ir.board_outline.dimensions_mm.get("height", 0),
+            "footprints": len(board_ir.footprints),
+            "mounting_holes": len(board_ir.mounting_holes),
+            "stackup_layers": len(board_ir.stackup),
+        },
     )
 
 

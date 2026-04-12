@@ -166,6 +166,24 @@ class Footprint(StrictModel):
     footprint_id: str = Field(min_length=1)
     instance_id: str = Field(min_length=1)
     package: str = Field(min_length=1)
+    library_ref: str | None = None
+    placement: dict[str, float] = Field(default_factory=dict)
+    fixed: bool = False
+    provenance: str = Field(default="rules", min_length=1)
+
+
+class MountingHole(StrictModel):
+    hole_id: str = Field(min_length=1)
+    diameter_mm: float = Field(gt=0)
+    x_mm: float
+    y_mm: float
+
+
+class FixedEdgeConnector(StrictModel):
+    connector_id: str = Field(min_length=1)
+    instance_id: str = Field(min_length=1)
+    edge: Literal["top", "bottom", "left", "right"]
+    offset_mm: float = Field(ge=0)
 
 
 class Constraint(StrictModel):
@@ -184,6 +202,7 @@ class Region(StrictModel):
     region_id: str = Field(min_length=1)
     region_type: str = Field(min_length=1)
     layers: list[str] = Field(default_factory=list)
+    geometry: dict[str, float | str] = Field(default_factory=dict)
 
 
 class RoutingIntent(StrictModel):
@@ -195,6 +214,8 @@ class BoardIR(VersionedModel):
     board_outline: BoardOutline
     stackup: list[StackupLayer] = Field(default_factory=list)
     footprints: list[Footprint] = Field(default_factory=list)
+    mounting_holes: list[MountingHole] = Field(default_factory=list)
+    fixed_edge_connectors: list[FixedEdgeConnector] = Field(default_factory=list)
     placement_constraints: list[Constraint] = Field(default_factory=list)
     design_rules: list[Constraint] = Field(default_factory=list)
     net_classes: list[NetClass] = Field(default_factory=list)
