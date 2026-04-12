@@ -112,8 +112,10 @@ def test_schematic_synthesis_endpoint_persists_ir(tmp_path: Path) -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["schematic_ir"]["component_instances"]
+    assert payload["board_ir"]["footprints"]
     assert "warnings" in payload
     assert Path(payload["saved_path"]).exists()
+    assert Path(payload["board_ir_path"]).exists()
 
 
 @pytest.mark.parametrize(
@@ -146,6 +148,7 @@ def test_schematic_synthesis_endpoint_compiles_kicad_artifacts_from_examples(tmp
     assert Path(result["kicad_project_path"]).exists()
     assert Path(result["kicad_schematic_path"]).exists()
     assert Path(result["kicad_sym_lib_table_path"]).exists()
+    assert Path(result["kicad_pcb_path"]).exists()
     assert Path(result["schematic_svg_path"]).exists()
     assert Path(result["schematic_pdf_path"]).exists()
     assert "<svg" in result["schematic_svg"]
