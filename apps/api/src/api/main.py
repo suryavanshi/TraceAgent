@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy import select
@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from api.db import Base, engine, get_db
 from api.git_snapshots import GitSnapshotRepository
-from api.models import DesignSnapshot, Project, User
+from api.models import DesignSnapshot, Project, User, VerificationRun
 from api.requirements_agent import RequirementsAgent, RequirementsChatMessage as AgentChatMessage, RuleBasedRequirementsProvider
 from api.part_catalog import LocalCuratedPartCatalog
 from api.part_resolver import PartConstraint, PartResolver
@@ -32,9 +32,12 @@ from api.schemas import (
     SchematicSynthesisRequest,
     SchematicSynthesisResponse,
     SchematicLintWarningPayload,
+    VerificationRunDetailResponse,
+    VerificationRunResponse,
 )
 from api.storage import LocalFilesystemStorage
 from trace_kicad.runner import compile_and_export_project
+from trace_verification import explain_finding, normalize_report, run_kicad_erc
 
 app = FastAPI(title="TraceAgent API", version="0.1.0")
 
@@ -290,4 +293,90 @@ def synthesize_project_schematic(
         schematic_svg_path=schematic_svg_path,
         schematic_pdf_path=schematic_pdf_path,
         schematic_svg=kicad_svg_content,
+    )
+
+
+def _run_project_verification(project: Project) -> tuple[dict, dict, list[dict], str]:
+    project_file = Path(STORAGE_BASE) / project.artifact_root_dir / "generated" / "kicad" / f"{project.name.replace(' ', '_').lower()}.kicad_pro"
+    raw_output = run_kicad_erc(project_file)
+    normalized_output = normalize_report(raw_output)
+    explanations = [{"code": finding["code"], "plain_english": explain_finding(finding)} for finding in normalized_output.get("findings", [])]
+    run_status = "completed" if raw_output.get("status") == "completed" else "failed"
+    return raw_output, normalized_output, explanations, run_status
+
+
+@app.post("/projects/{project_id}/verification-runs", response_model=VerificationRunDetailResponse)
+def create_verification_run(project_id: UUID, db: Session = Depends(get_db)) -> VerificationRunDetailResponse:
+    project = db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    raw_output, normalized_output, explanations, run_status = _run_project_verification(project)
+    artifact_dir = f"{project.artifact_root_dir}/verification"
+    run_prefix = f"run_{uuid4()}"
+    raw_output_artifact_path = storage.write_text(
+        artifact_dir,
+        f"{run_prefix}_raw.json",
+        json.dumps(raw_output, indent=2, sort_keys=True),
+    )
+    normalized_output_artifact_path = storage.write_text(
+        artifact_dir,
+        f"{run_prefix}_normalized.json",
+        json.dumps(normalized_output, indent=2, sort_keys=True),
+    )
+    explanation_artifact_path = storage.write_text(
+        artifact_dir,
+        f"{run_prefix}_explanations.json",
+        json.dumps(explanations, indent=2, sort_keys=True),
+    )
+
+    verification_run = VerificationRun(
+        project_id=project.id,
+        snapshot_id=None,
+        status=run_status,
+        report_artifact_path=normalized_output_artifact_path,
+        raw_output_artifact_path=raw_output_artifact_path,
+        normalized_output_artifact_path=normalized_output_artifact_path,
+        explanation_artifact_path=explanation_artifact_path,
+    )
+    db.add(verification_run)
+    db.commit()
+    db.refresh(verification_run)
+
+    return VerificationRunDetailResponse(
+        **VerificationRunResponse.model_validate(verification_run, from_attributes=True).model_dump(),
+        raw_output=raw_output,
+        normalized_output=normalized_output,
+        explanations=explanations,
+    )
+
+
+@app.get("/projects/{project_id}/verification-runs", response_model=list[VerificationRunResponse])
+def list_verification_runs(project_id: UUID, db: Session = Depends(get_db)) -> list[VerificationRun]:
+    project = db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return list(
+        db.scalars(select(VerificationRun).where(VerificationRun.project_id == project_id).order_by(VerificationRun.created_at.desc())).all()
+    )
+
+
+@app.get("/projects/{project_id}/verification-runs/{run_id}", response_model=VerificationRunDetailResponse)
+def get_verification_run(project_id: UUID, run_id: UUID, db: Session = Depends(get_db)) -> VerificationRunDetailResponse:
+    project = db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    run = db.get(VerificationRun, run_id)
+    if run is None or run.project_id != project.id:
+        raise HTTPException(status_code=404, detail="Verification run not found")
+    raw_output = json.loads(Path(run.raw_output_artifact_path).read_text(encoding="utf-8"))
+    normalized_output = json.loads(Path(run.normalized_output_artifact_path).read_text(encoding="utf-8"))
+    explanations: list[dict] = []
+    if run.explanation_artifact_path:
+        explanations = json.loads(Path(run.explanation_artifact_path).read_text(encoding="utf-8"))
+    return VerificationRunDetailResponse(
+        **VerificationRunResponse.model_validate(run, from_attributes=True).model_dump(),
+        raw_output=raw_output,
+        normalized_output=normalized_output,
+        explanations=explanations,
     )

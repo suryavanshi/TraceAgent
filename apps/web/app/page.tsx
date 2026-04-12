@@ -33,6 +33,27 @@ type SchematicSynthesisResponse = {
   schematic_pdf_path: string;
 };
 
+type VerificationFinding = {
+  code: string;
+  message: string;
+  details: {
+    severity?: string;
+    probable_cause?: string;
+    affected_nets?: string[];
+    affected_components?: string[];
+    suggested_fixes?: string[];
+  };
+};
+
+type VerificationRunDetail = {
+  id: string;
+  status: string;
+  normalized_output: {
+    findings: VerificationFinding[];
+  };
+  explanations: Array<{ code: string; plain_english: string }>;
+};
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export default function HomePage() {
@@ -49,6 +70,9 @@ export default function HomePage() {
   const [synthesis, setSynthesis] = useState<SchematicSynthesisResponse | null>(null);
   const [loadingSynthesis, setLoadingSynthesis] = useState(false);
   const [activeTab, setActiveTab] = useState<"summary" | "schematic">("summary");
+  const [verification, setVerification] = useState<VerificationRunDetail | null>(null);
+  const [loadingVerification, setLoadingVerification] = useState(false);
+  const [highlightedObject, setHighlightedObject] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -166,6 +190,38 @@ export default function HomePage() {
     }
   };
 
+  const onRunVerification = async () => {
+    setError(null);
+    if (!selectedProjectId) {
+      setError("Select a project first.");
+      return;
+    }
+    setLoadingVerification(true);
+    try {
+      const response = await fetch(`${API_BASE}/projects/${selectedProjectId}/verification-runs`, { method: "POST" });
+      if (!response.ok) {
+        setError("Verification run failed.");
+        return;
+      }
+      setVerification((await response.json()) as VerificationRunDetail);
+      setActiveTab("summary");
+    } catch {
+      setError("Verification run failed.");
+    } finally {
+      setLoadingVerification(false);
+    }
+  };
+
+  const findingsBySeverity = useMemo(() => {
+    const grouped: Record<string, VerificationFinding[]> = {};
+    for (const finding of verification?.normalized_output.findings ?? []) {
+      const severity = finding.details?.severity ?? "info";
+      grouped[severity] = grouped[severity] ?? [];
+      grouped[severity].push(finding);
+    }
+    return grouped;
+  }, [verification]);
+
   return (
     <main style={{ maxWidth: 960, margin: "0 auto", padding: "3rem 1rem" }}>
       <h1>{APP_NAME}</h1>
@@ -262,6 +318,7 @@ export default function HomePage() {
                 {synthesis.schematic_ir.component_instances.map((component) => (
                   <li key={component.instance_id}>
                     <code>{component.reference}</code> — {component.value ?? component.instance_id}
+                    {highlightedObject && highlightedObject === component.reference ? " ⭐" : ""}
                   </li>
                 ))}
               </ul>
@@ -272,6 +329,7 @@ export default function HomePage() {
                 {synthesis.schematic_ir.nets.map((net) => (
                   <li key={net.net_id}>
                     <strong>{net.name ?? net.net_id}</strong> ({net.nodes.length} nodes)
+                    {highlightedObject && highlightedObject === (net.name ?? net.net_id) ? " ⭐" : ""}
                   </li>
                 ))}
               </ul>
@@ -299,6 +357,45 @@ export default function HomePage() {
               SVG artifact: <code>{synthesis.schematic_svg_path}</code><br />
               PDF artifact: <code>{synthesis.schematic_pdf_path}</code>
             </p>
+          </div>
+        )}
+      </section>
+
+      <section style={{ marginTop: "2rem", borderTop: "1px solid #ddd", paddingTop: "1rem" }}>
+        <h2>Verification Issues (ERC)</h2>
+        <button type="button" onClick={onRunVerification} disabled={loadingVerification}>
+          {loadingVerification ? "Running ERC…" : "Run ERC"}
+        </button>
+        {!verification ? (
+          <p style={{ marginTop: "0.75rem" }}>No verification runs yet.</p>
+        ) : (
+          <div style={{ marginTop: "0.75rem" }}>
+            <p>Status: <strong>{verification.status}</strong></p>
+            {Object.entries(findingsBySeverity).map(([severity, findings]) => (
+              <div key={severity} style={{ marginBottom: "0.75rem" }}>
+                <h3>{severity.toUpperCase()}</h3>
+                <ul>
+                  {findings.map((finding, index) => {
+                    const firstObject =
+                      finding.details?.affected_components?.[0] ?? finding.details?.affected_nets?.[0] ?? null;
+                    const explainer = verification.explanations.find((item) => item.code === finding.code)?.plain_english;
+                    return (
+                      <li key={`${finding.code}-${index}`}>
+                        <button
+                          type="button"
+                          onClick={() => setHighlightedObject(firstObject)}
+                          style={{ marginRight: "0.5rem" }}
+                        >
+                          Highlight
+                        </button>
+                        <code>{finding.code}</code> — {finding.message}
+                        {explainer ? <p style={{ margin: "0.25rem 0" }}>{explainer}</p> : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
           </div>
         )}
       </section>
