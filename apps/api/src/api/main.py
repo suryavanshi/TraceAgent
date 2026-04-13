@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from api.db import Base, engine, get_db
 from api.git_snapshots import GitSnapshotRepository
-from api.models import DesignSnapshot, Project, User, VerificationRun
+from api.models import DesignSnapshot, Project, ReleaseBundle, User, VerificationRun
 from api.requirements_agent import RequirementsAgent, RequirementsChatMessage as AgentChatMessage, RuleBasedRequirementsProvider
 from api.part_catalog import LocalCuratedPartCatalog
 from api.part_resolver import PartConstraint, PartResolver
@@ -38,9 +38,12 @@ from api.schemas import (
     VerificationRunResponse,
     VisualEditsSyncRequest,
     VisualEditsSyncResponse,
+    ReleaseBundleCreateRequest,
+    ReleaseBundleDetailResponse,
+    ReleaseBundleResponse,
 )
 from api.storage import LocalFilesystemStorage
-from design_ir.models import BoardIR
+from design_ir.models import BoardIR, SchematicIR
 from trace_kicad.runner import compile_and_export_project, compile_board_project
 from trace_kicad.routing import RoutingPlanner
 from trace_verification import (
@@ -50,6 +53,7 @@ from trace_verification import (
     run_kicad_erc,
     run_manufacturability_checks,
 )
+from worker.release import build_release_bundle
 
 app = FastAPI(title="TraceAgent API", version="0.1.0")
 
@@ -478,3 +482,61 @@ def undo_visual_edit(project_id: UUID, db: Session = Depends(get_db)) -> BoardIR
         return visual_edit_sync.undo(str(project_id))
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/projects/{project_id}/releases", response_model=ReleaseBundleDetailResponse)
+def create_release_bundle(project_id: UUID, payload: ReleaseBundleCreateRequest, db: Session = Depends(get_db)) -> ReleaseBundleDetailResponse:
+    project = db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    snapshot = db.get(DesignSnapshot, payload.snapshot_id)
+    if snapshot is None or snapshot.project_id != project.id:
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+
+    generated_dir = Path(STORAGE_BASE) / project.artifact_root_dir / "generated"
+    schematic_ir_path = generated_dir / "schematic_ir" / "schematic_ir.json"
+    board_ir_path = generated_dir / "board_ir" / "board_ir.json"
+    if not schematic_ir_path.exists() or not board_ir_path.exists():
+        raise HTTPException(status_code=400, detail="Schematic/board artifacts are missing. Synthesize design before release.")
+
+    schematic_ir = SchematicIR.model_validate_json(schematic_ir_path.read_text(encoding="utf-8"))
+    board_ir = BoardIR.model_validate_json(board_ir_path.read_text(encoding="utf-8"))
+
+    release_root = Path(STORAGE_BASE) / project.artifact_root_dir / "releases"
+    bundle_result = build_release_bundle(
+        project_name=project.name,
+        version=payload.version,
+        snapshot_id=str(snapshot.id),
+        snapshot_git_commit_hash=snapshot.git_commit_hash,
+        schematic_ir=schematic_ir,
+        board_ir=board_ir,
+        output_root=release_root,
+    )
+
+    release = ReleaseBundle(
+        project_id=project.id,
+        snapshot_id=snapshot.id,
+        version=payload.version,
+        artifact_dir=str(bundle_result.output_dir),
+        notes=payload.notes,
+    )
+    db.add(release)
+    db.commit()
+    db.refresh(release)
+
+    return ReleaseBundleDetailResponse(
+        **ReleaseBundleResponse.model_validate(release, from_attributes=True).model_dump(),
+        manifest=bundle_result.manifest,
+        files=bundle_result.files,
+    )
+
+
+@app.get("/projects/{project_id}/releases", response_model=list[ReleaseBundleResponse])
+def list_release_bundles(project_id: UUID, db: Session = Depends(get_db)) -> list[ReleaseBundle]:
+    project = db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return list(
+        db.scalars(select(ReleaseBundle).where(ReleaseBundle.project_id == project_id).order_by(ReleaseBundle.created_at.desc())).all()
+    )
