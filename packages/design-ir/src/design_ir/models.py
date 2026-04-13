@@ -243,12 +243,48 @@ class PatchOperation(StrictModel):
     value: Any | None = None
 
 
+class PatchCategory(str, Enum):
+    ADD_REMOVE_COMPONENT = "add_remove_component"
+    SWAP_PART = "swap_part"
+    RENAME_NET = "rename_net"
+    CHANGE_POWER_RAIL_VALUE = "change_power_rail_value"
+    MOVE_CONNECTOR = "move_connector"
+    RESIZE_BOARD = "resize_board"
+    WIDEN_TRACE_CLASS = "widen_trace_class"
+    ADD_TEST_POINTS = "add_test_points"
+    ADD_PROTECTION_CIRCUITRY = "add_protection_circuitry"
+
+
+class ImpactDomain(str, Enum):
+    SCHEMATIC_ONLY = "schematic_only"
+    BOARD_ONLY = "board_only"
+    BOTH = "both"
+
+
+class PatchImpactAnalysis(StrictModel):
+    domain: ImpactDomain
+    requires_replacement: bool = False
+    requires_rerouting: bool = False
+    requires_reverification: bool = False
+
+
+class UserChangeProvenance(StrictModel):
+    source: Literal["user_instruction"] = "user_instruction"
+    instruction: str = Field(min_length=1)
+    actor: str = Field(default="user", min_length=1)
+
+
 class PatchPlan(VersionedModel):
     user_intent: str = Field(min_length=1)
     affected_objects: list[str] = Field(default_factory=list)
     operations: list[PatchOperation] = Field(default_factory=list)
     impact_scope: Literal["local", "sheet", "board", "global"]
     requires_confirmation: bool
+    category: PatchCategory = PatchCategory.ADD_REMOVE_COMPONENT
+    impact_analysis: PatchImpactAnalysis = Field(
+        default_factory=lambda: PatchImpactAnalysis(domain=ImpactDomain.SCHEMATIC_ONLY)
+    )
+    provenance: list[UserChangeProvenance] = Field(default_factory=list)
 
 
 class Severity(str, Enum):
