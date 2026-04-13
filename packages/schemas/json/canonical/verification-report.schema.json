@@ -16,7 +16,50 @@
         "details": {
           "additionalProperties": true,
           "title": "Details",
-          "type": "object"
+          "type": "object",
+          "properties": {
+            "severity": {
+              "$ref": "#/$defs/Severity"
+            },
+            "check": {
+              "type": "string"
+            },
+            "source_kind": {
+              "type": "string",
+              "enum": [
+                "formal",
+                "heuristic"
+              ]
+            },
+            "plain_english": {
+              "type": "string"
+            },
+            "probable_cause": {
+              "type": "string"
+            },
+            "affected_nets": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "affected_components": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "suggested_fixes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidence": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
         }
       },
       "required": [
@@ -35,6 +78,31 @@
       ],
       "title": "Severity",
       "type": "string"
+    },
+    "CheckSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "tool": {
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "finding_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "status",
+        "tool",
+        "severity",
+        "finding_count"
+      ]
     }
   },
   "additionalProperties": false,
@@ -73,6 +141,12 @@
       },
       "title": "Suggested Fixes",
       "type": "array"
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/CheckSummary"
+      }
     }
   },
   "required": [

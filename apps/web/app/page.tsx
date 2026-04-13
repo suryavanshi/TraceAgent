@@ -48,7 +48,10 @@ type VerificationFinding = {
   message: string;
   details: {
     severity?: string;
+    check?: string;
+    source_kind?: "formal" | "heuristic";
     probable_cause?: string;
+    plain_english?: string;
     affected_nets?: string[];
     affected_components?: string[];
     suggested_fixes?: string[];
@@ -60,6 +63,7 @@ type VerificationRunDetail = {
   status: string;
   normalized_output: {
     findings: VerificationFinding[];
+    checks?: Record<string, { status: string; severity: string; finding_count: number; tool: string }>;
   };
   explanations: Array<{ code: string; plain_english: string }>;
 };
@@ -415,15 +419,27 @@ export default function HomePage() {
       </section>
 
       <section style={{ marginTop: "2rem", borderTop: "1px solid #ddd", paddingTop: "1rem" }}>
-        <h2>Verification Issues (ERC)</h2>
+        <h2>Verification Dashboard</h2>
         <button type="button" onClick={onRunVerification} disabled={loadingVerification}>
-          {loadingVerification ? "Running ERC…" : "Run ERC"}
+          {loadingVerification ? "Running checks…" : "Run ERC + DRC + Manufacturability"}
         </button>
         {!verification ? (
           <p style={{ marginTop: "0.75rem" }}>No verification runs yet.</p>
         ) : (
           <div style={{ marginTop: "0.75rem" }}>
             <p>Status: <strong>{verification.status}</strong></p>
+            {verification.normalized_output.checks ? (
+              <div style={{ marginBottom: "1rem" }}>
+                <h3>Checks</h3>
+                <ul>
+                  {Object.entries(verification.normalized_output.checks).map(([name, check]) => (
+                    <li key={name}>
+                      <strong>{name.toUpperCase()}</strong>: {check.status} · {check.severity} · {check.finding_count} finding(s) · <code>{check.tool}</code>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             {Object.entries(findingsBySeverity).map(([severity, findings]) => (
               <div key={severity} style={{ marginBottom: "0.75rem" }}>
                 <h3>{severity.toUpperCase()}</h3>
@@ -441,7 +457,8 @@ export default function HomePage() {
                         >
                           Highlight
                         </button>
-                        <code>{finding.code}</code> — {finding.message}
+                        <code>{finding.code}</code> — {finding.message} {finding.details?.source_kind ? <em>({finding.details.source_kind})</em> : null}
+                        {finding.details?.check ? <span> [{finding.details.check.toUpperCase()}]</span> : null}
                         {explainer ? <p style={{ margin: "0.25rem 0" }}>{explainer}</p> : null}
                       </li>
                     );

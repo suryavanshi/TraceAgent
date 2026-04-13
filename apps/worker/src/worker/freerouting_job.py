@@ -5,7 +5,13 @@ from pathlib import Path
 
 from design_ir.models import BoardIR, SchematicIR
 from trace_kicad.routing import FreeroutingAdapter, FreeroutingRunResult, RoutingPlanner, SpecctraSessionIO
-from trace_verification import explain_finding, normalize_report, run_kicad_erc
+from trace_verification import (
+    explain_finding,
+    normalize_verification_suite,
+    run_kicad_drc,
+    run_kicad_erc,
+    run_manufacturability_checks,
+)
 
 
 def run_freerouting_job(
@@ -39,11 +45,14 @@ def run_freerouting_job(
 
     imported = specctra_io.import_ses(ses_path=ses_path, routing_plan=routing_plan)
 
-    raw_output = run_kicad_erc(Path(project_file))
-    normalized_output = normalize_report(raw_output)
+    raw_erc = run_kicad_erc(Path(project_file))
+    raw_drc = run_kicad_drc(Path(pcb_file))
+    raw_manufacturability = run_manufacturability_checks(Path(pcb_file))
+    raw_output = {"erc": raw_erc, "drc": raw_drc, "manufacturability": raw_manufacturability}
+    normalized_output = normalize_verification_suite(raw_output)
     explanations = [{"code": finding["code"], "plain_english": explain_finding(finding)} for finding in normalized_output.get("findings", [])]
     verification = {
-        "status": "completed" if raw_output.get("status") == "completed" else "failed",
+        "status": "completed" if all(item.get("status") == "completed" for item in [raw_erc, raw_drc, raw_manufacturability]) else "failed",
         "raw_output": raw_output,
         "normalized_output": normalized_output,
         "explanations": explanations,

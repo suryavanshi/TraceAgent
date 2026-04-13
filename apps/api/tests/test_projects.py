@@ -104,12 +104,31 @@ def test_verification_runs(tmp_path: Path, monkeypatch) -> None:
             "issues": [{"id": "ERC_PWR", "severity": "warning", "message": "power input not driven U1 Net-/3V3"}],
         },
     )
+    monkeypatch.setattr(
+        "api.main.run_kicad_drc",
+        lambda _path: {
+            "tool": "kicad-drc",
+            "status": "completed",
+            "issues": [{"id": "DRC_CRDY", "severity": "error", "message": "courtyard overlap U1 U2"}],
+        },
+    )
+    monkeypatch.setattr(
+        "api.main.run_manufacturability_checks",
+        lambda _path, current_target_amps=1.0: {
+            "tool": "manufacturability-heuristics",
+            "status": "completed",
+            "issues": [{"id": "MFG_TRACE_WIDTH", "severity": "warning", "message": "trace width below target"}],
+        },
+    )
 
     create_run_response = client.post(f"/projects/{project['id']}/verification-runs")
     assert create_run_response.status_code == 200
     run_payload = create_run_response.json()
-    assert run_payload["normalized_output"]["tool"] == "kicad-erc"
+    assert run_payload["normalized_output"]["tool"] == "verification-suite"
     assert run_payload["status"] == "completed"
+    assert run_payload["normalized_output"]["checks"]["erc"]["finding_count"] == 1
+    assert run_payload["normalized_output"]["checks"]["drc"]["finding_count"] == 1
+    assert run_payload["normalized_output"]["checks"]["manufacturability"]["finding_count"] == 1
 
     list_response = client.get(f"/projects/{project['id']}/verification-runs")
     assert list_response.status_code == 200

@@ -39,7 +39,13 @@ from api.schemas import (
 from api.storage import LocalFilesystemStorage
 from trace_kicad.runner import compile_and_export_project, compile_board_project
 from trace_kicad.routing import RoutingPlanner
-from trace_verification import explain_finding, normalize_report, run_kicad_erc
+from trace_verification import (
+    explain_finding,
+    normalize_verification_suite,
+    run_kicad_drc,
+    run_kicad_erc,
+    run_manufacturability_checks,
+)
 
 app = FastAPI(title="TraceAgent API", version="0.1.0")
 
@@ -341,11 +347,22 @@ def synthesize_project_schematic(
 
 
 def _run_project_verification(project: Project) -> tuple[dict, dict, list[dict], str]:
-    project_file = Path(STORAGE_BASE) / project.artifact_root_dir / "generated" / "kicad" / f"{project.name.replace(' ', '_').lower()}.kicad_pro"
-    raw_output = run_kicad_erc(project_file)
-    normalized_output = normalize_report(raw_output)
+    stem = project.name.replace(" ", "_").lower()
+    generated_dir = Path(STORAGE_BASE) / project.artifact_root_dir / "generated"
+    project_file = generated_dir / "kicad" / f"{stem}.kicad_pro"
+    pcb_file = generated_dir / "kicad" / f"{stem}.kicad_pcb"
+
+    raw_erc = run_kicad_erc(project_file)
+    raw_drc = run_kicad_drc(pcb_file)
+    raw_manufacturability = run_manufacturability_checks(
+        pcb_file,
+        current_target_amps=float(os.getenv("MANUFACTURABILITY_CURRENT_TARGET_A", "1.0")),
+    )
+
+    raw_output = {"erc": raw_erc, "drc": raw_drc, "manufacturability": raw_manufacturability}
+    normalized_output = normalize_verification_suite(raw_output)
     explanations = [{"code": finding["code"], "plain_english": explain_finding(finding)} for finding in normalized_output.get("findings", [])]
-    run_status = "completed" if raw_output.get("status") == "completed" else "failed"
+    run_status = "completed" if all(item.get("status") == "completed" for item in [raw_erc, raw_drc, raw_manufacturability]) else "failed"
     return raw_output, normalized_output, explanations, run_status
 
 
