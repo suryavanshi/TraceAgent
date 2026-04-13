@@ -18,6 +18,7 @@ from api.part_catalog import LocalCuratedPartCatalog
 from api.part_resolver import PartConstraint, PartResolver
 from api.board_synthesis import BoardIRGenerator
 from api.schematic_synthesis import SchematicSynthesisAgent, SelectedPart
+from api.visual_edits import VisualEdit, VisualEditSyncService
 from api.schemas import (
     ProjectCreate,
     ProjectResponse,
@@ -35,8 +36,11 @@ from api.schemas import (
     SchematicLintWarningPayload,
     VerificationRunDetailResponse,
     VerificationRunResponse,
+    VisualEditsSyncRequest,
+    VisualEditsSyncResponse,
 )
 from api.storage import LocalFilesystemStorage
+from design_ir.models import BoardIR
 from trace_kicad.runner import compile_and_export_project, compile_board_project
 from trace_kicad.routing import RoutingPlanner
 from trace_verification import (
@@ -58,6 +62,7 @@ part_resolver = PartResolver(part_catalog)
 schematic_synthesis_agent = SchematicSynthesisAgent()
 board_ir_generator = BoardIRGenerator()
 routing_planner = RoutingPlanner()
+visual_edit_sync = VisualEditSyncService()
 
 
 def get_requirements_agent() -> RequirementsAgent:
@@ -441,3 +446,35 @@ def get_verification_run(project_id: UUID, run_id: UUID, db: Session = Depends(g
         normalized_output=normalized_output,
         explanations=explanations,
     )
+
+
+@app.post("/projects/{project_id}/visual-edits/sync", response_model=list[VisualEditsSyncResponse])
+def sync_visual_edits(project_id: UUID, payload: VisualEditsSyncRequest, db: Session = Depends(get_db)) -> list[VisualEditsSyncResponse]:
+    project = db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    visual_edit_sync.ensure_session(str(project_id), payload.board_ir)
+    responses: list[VisualEditsSyncResponse] = []
+    for edit_payload in payload.edits:
+        applied = visual_edit_sync.apply(str(project_id), VisualEdit.model_validate(edit_payload.model_dump()))
+        responses.append(
+            VisualEditsSyncResponse(
+                board_ir=applied.board_ir,
+                patch_plan=applied.patch_plan.model_dump(mode="json"),
+                summary=applied.summary,
+                object_id=applied.object_id,
+            )
+        )
+    return responses
+
+
+@app.post("/projects/{project_id}/visual-edits/undo", response_model=BoardIR)
+def undo_visual_edit(project_id: UUID, db: Session = Depends(get_db)) -> BoardIR:
+    project = db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    try:
+        return visual_edit_sync.undo(str(project_id))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

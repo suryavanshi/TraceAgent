@@ -253,6 +253,11 @@ class PatchCategory(str, Enum):
     WIDEN_TRACE_CLASS = "widen_trace_class"
     ADD_TEST_POINTS = "add_test_points"
     ADD_PROTECTION_CIRCUITRY = "add_protection_circuitry"
+    MOVE_FOOTPRINT = "move_footprint"
+    ROTATE_FOOTPRINT = "rotate_footprint"
+    LOCK_FOOTPRINT = "lock_footprint"
+    ASSIGN_REGION = "assign_region"
+    TOGGLE_KEEPOUT = "toggle_keepout"
 
 
 class ImpactDomain(str, Enum):
