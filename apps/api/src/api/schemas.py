@@ -179,3 +179,24 @@ class VisualEditsSyncResponse(BaseModel):
     patch_plan: dict[str, Any]
     summary: str
     object_id: str
+
+
+class ReleaseBundleCreateRequest(BaseModel):
+    snapshot_id: UUID
+    version: str = Field(min_length=1)
+    notes: str | None = None
+
+
+class ReleaseBundleResponse(BaseModel):
+    id: UUID
+    project_id: UUID
+    snapshot_id: UUID | None
+    version: str
+    artifact_dir: str
+    notes: str | None
+    created_at: datetime
+
+
+class ReleaseBundleDetailResponse(ReleaseBundleResponse):
+    manifest: dict[str, Any]
+    files: dict[str, str] = Field(default_factory=dict)

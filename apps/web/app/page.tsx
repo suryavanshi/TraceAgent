@@ -15,6 +15,14 @@ type Snapshot = {
   created_at: string;
 };
 
+type ReleaseBundle = {
+  id: string;
+  version: string;
+  artifact_dir: string;
+  created_at: string;
+  snapshot_id: string | null;
+};
+
 type RequirementsResponse = {
   proposed_circuit_spec: Record<string, unknown>;
   summary: string;
@@ -93,6 +101,10 @@ export default function HomePage() {
   const [highlightedObject, setHighlightedObject] = useState<string | null>(null);
   const [selectedFootprintId, setSelectedFootprintId] = useState<string>("");
   const [visualEditLog, setVisualEditLog] = useState<string[]>([]);
+  const [releases, setReleases] = useState<ReleaseBundle[]>([]);
+  const [releaseVersion, setReleaseVersion] = useState<string>("v0.1.0");
+  const [loadingRelease, setLoadingRelease] = useState(false);
+  const [releaseError, setReleaseError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -129,6 +141,23 @@ export default function HomePage() {
     };
 
     void loadSnapshots();
+  }, [selectedProjectId]);
+
+  useEffect(() => {
+    const loadReleases = async () => {
+      if (!selectedProjectId) {
+        setReleases([]);
+        return;
+      }
+      const response = await fetch(`${API_BASE}/projects/${selectedProjectId}/releases`);
+      if (!response.ok) {
+        setReleases([]);
+        return;
+      }
+      setReleases((await response.json()) as ReleaseBundle[]);
+    };
+
+    void loadReleases();
   }, [selectedProjectId]);
 
   const parsedHistory = useMemo(() => {
@@ -282,6 +311,44 @@ export default function HomePage() {
     }
     setSynthesis({ ...synthesis, board_ir: (await response.json()) as SchematicSynthesisResponse["board_ir"] });
     setVisualEditLog((previous) => ["Undid last visual edit.", ...previous].slice(0, 8));
+  };
+
+  const onCreateReleaseBundle = async () => {
+    setReleaseError(null);
+    if (!selectedProjectId) {
+      setReleaseError("Select a project first.");
+      return;
+    }
+    if (snapshots.length === 0) {
+      setReleaseError("Create a snapshot first so the release links to an exact design snapshot.");
+      return;
+    }
+
+    setLoadingRelease(true);
+    try {
+      const response = await fetch(`${API_BASE}/projects/${selectedProjectId}/releases`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          snapshot_id: snapshots[0].id,
+          version: releaseVersion,
+          notes: "One-click release bundle from UI",
+        }),
+      });
+      if (!response.ok) {
+        setReleaseError("Release bundle generation failed.");
+        return;
+      }
+      const _bundle = (await response.json()) as { id: string };
+      const refresh = await fetch(`${API_BASE}/projects/${selectedProjectId}/releases`);
+      if (refresh.ok) {
+        setReleases((await refresh.json()) as ReleaseBundle[]);
+      }
+    } catch {
+      setReleaseError("Release bundle generation failed.");
+    } finally {
+      setLoadingRelease(false);
+    }
   };
 
   return (
@@ -554,6 +621,35 @@ export default function HomePage() {
               </div>
             ))}
           </div>
+        )}
+      </section>
+
+      <section style={{ marginTop: "2rem", borderTop: "1px solid #ddd", paddingTop: "1rem" }}>
+        <h2>Release Page</h2>
+        <p>Create deterministic release bundles linked to a snapshot and stored in artifact storage.</p>
+        <label>
+          Release version
+          <input
+            value={releaseVersion}
+            onChange={(event) => setReleaseVersion(event.target.value)}
+            style={{ display: "block", width: "100%", margin: "0.35rem 0 0.5rem 0" }}
+          />
+        </label>
+        <button type="button" onClick={onCreateReleaseBundle} disabled={loadingRelease}>
+          {loadingRelease ? "Bundling…" : "Create Release Bundle"}
+        </button>
+        {releaseError ? <p>{releaseError}</p> : null}
+        {releases.length === 0 ? (
+          <p>No releases created yet.</p>
+        ) : (
+          <ul>
+            {releases.map((release) => (
+              <li key={release.id}>
+                <strong>{release.version}</strong> — {new Date(release.created_at).toLocaleString()} —
+                <code> {release.artifact_dir}</code>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 
