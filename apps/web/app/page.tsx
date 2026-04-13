@@ -23,6 +23,10 @@ type RequirementsResponse = {
 
 
 type SchematicSynthesisResponse = {
+  board_ir: {
+    footprints: Array<{ footprint_id: string; instance_id: string; package: string; placement?: Record<string, number>; fixed?: boolean }>;
+    keepouts?: Array<{ region_id: string }>;
+  };
   schematic_ir: {
     component_instances: Array<{ instance_id: string; reference: string; value?: string | null }>;
     nets: Array<{ net_id: string; name?: string | null; nodes: Array<{ instance_id: string; pin_number: string }> }>;
@@ -87,6 +91,8 @@ export default function HomePage() {
   const [verification, setVerification] = useState<VerificationRunDetail | null>(null);
   const [loadingVerification, setLoadingVerification] = useState(false);
   const [highlightedObject, setHighlightedObject] = useState<string | null>(null);
+  const [selectedFootprintId, setSelectedFootprintId] = useState<string>("");
+  const [visualEditLog, setVisualEditLog] = useState<string[]>([]);
 
   useEffect(() => {
     const load = async () => {
@@ -164,6 +170,8 @@ export default function HomePage() {
       }
 
       setSynthesis((await response.json()) as SchematicSynthesisResponse);
+      setSelectedFootprintId("");
+      setVisualEditLog([]);
     } catch {
       setError("Schematic synthesis failed.");
     } finally {
@@ -235,6 +243,46 @@ export default function HomePage() {
     }
     return grouped;
   }, [verification]);
+
+  const selectedFootprint = useMemo(
+    () => synthesis?.board_ir.footprints.find((item) => item.footprint_id === selectedFootprintId) ?? null,
+    [selectedFootprintId, synthesis],
+  );
+
+  const applyVisualEdit = async (edit: Record<string, unknown>) => {
+    if (!selectedProjectId || !synthesis) {
+      setError("Generate board metadata before applying visual edits.");
+      return;
+    }
+    const response = await fetch(`${API_BASE}/projects/${selectedProjectId}/visual-edits/sync`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        board_ir: synthesis.board_ir,
+        edits: [edit],
+      }),
+    });
+    if (!response.ok) {
+      setError("Visual edit sync failed.");
+      return;
+    }
+    const [result] = (await response.json()) as Array<{ board_ir: SchematicSynthesisResponse["board_ir"]; summary: string }>;
+    setSynthesis({ ...synthesis, board_ir: result.board_ir });
+    setVisualEditLog((previous) => [result.summary, ...previous].slice(0, 8));
+  };
+
+  const undoVisualEdit = async () => {
+    if (!selectedProjectId || !synthesis) {
+      return;
+    }
+    const response = await fetch(`${API_BASE}/projects/${selectedProjectId}/visual-edits/undo`, { method: "POST" });
+    if (!response.ok) {
+      setError("Undo failed.");
+      return;
+    }
+    setSynthesis({ ...synthesis, board_ir: (await response.json()) as SchematicSynthesisResponse["board_ir"] });
+    setVisualEditLog((previous) => ["Undid last visual edit.", ...previous].slice(0, 8));
+  };
 
   return (
     <main style={{ maxWidth: 960, margin: "0 auto", padding: "3rem 1rem" }}>
@@ -376,7 +424,7 @@ export default function HomePage() {
         ) : (
           <div style={{ marginTop: "1rem" }}>
             <h3>PCB Preview (Placeholder)</h3>
-                        <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: "0.75rem", marginBottom: "0.75rem" }}>
+            <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: "0.75rem", marginBottom: "0.75rem" }}>
               <h4 style={{ marginTop: 0 }}>Routing Status</h4>
               <p style={{ margin: "0.25rem 0" }}>
                 Routed: <strong>{synthesis.board_metadata.routing_state?.routed_count ?? 0}</strong> / Unrouted: <strong>{synthesis.board_metadata.routing_state?.unrouted_count ?? 0}</strong>
@@ -385,6 +433,45 @@ export default function HomePage() {
                 Autorouting policy: <code>non-critical-only</code>
                 {synthesis.board_metadata.routing_state?.verification_required ? " (verification required)" : ""}
               </p>
+            </div>
+            <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: "0.75rem", marginBottom: "0.75rem" }}>
+              <h4 style={{ marginTop: 0 }}>Visual Edit Sync</h4>
+              <button type="button" onClick={undoVisualEdit} style={{ marginBottom: "0.5rem" }}>Undo visual edit</button>
+              <label>
+                Select footprint
+                <select
+                  value={selectedFootprintId}
+                  onChange={(event) => setSelectedFootprintId(event.target.value)}
+                  style={{ display: "block", width: "100%", marginTop: "0.35rem", marginBottom: "0.5rem" }}
+                >
+                  <option value="">Choose footprint</option>
+                  {synthesis.board_ir.footprints.map((footprint) => (
+                    <option key={footprint.footprint_id} value={footprint.footprint_id}>
+                      {footprint.footprint_id} ({footprint.package})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {selectedFootprint ? (
+                <>
+                  <p style={{ margin: "0.25rem 0" }}>
+                    <strong>Metadata:</strong> instance=<code>{selectedFootprint.instance_id}</code>, package=<code>{selectedFootprint.package}</code>, locked=
+                    <code>{String(selectedFootprint.fixed ?? false)}</code>, x=<code>{String(selectedFootprint.placement?.x_mm ?? 0)}</code>, y=
+                    <code>{String(selectedFootprint.placement?.y_mm ?? 0)}</code>
+                  </p>
+                  <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                    <button type="button" onClick={() => applyVisualEdit({ kind: "move_footprint", object_id: `footprint:${selectedFootprint.footprint_id}`, x_mm: Number(selectedFootprint.placement?.x_mm ?? 0) + 1, y_mm: Number(selectedFootprint.placement?.y_mm ?? 0) })}>Drag +X</button>
+                    <button type="button" onClick={() => applyVisualEdit({ kind: "rotate_footprint", object_id: `footprint:${selectedFootprint.footprint_id}`, delta_deg: 90 })}>Rotate +90°</button>
+                    <button type="button" onClick={() => applyVisualEdit({ kind: "lock_footprint", object_id: `footprint:${selectedFootprint.footprint_id}`, locked: !(selectedFootprint.fixed ?? false) })}>{selectedFootprint.fixed ? "Unlock" : "Lock"}</button>
+                    <button type="button" onClick={() => applyVisualEdit({ kind: "assign_region", object_id: `footprint:${selectedFootprint.footprint_id}`, region_id: "region:main" })}>Assign region</button>
+                    <button type="button" onClick={() => applyVisualEdit({ kind: "toggle_keepout", object_id: `footprint:${selectedFootprint.footprint_id}` })}>Toggle keepout</button>
+                  </div>
+                </>
+              ) : (
+                <p>Select a footprint to edit placement/metadata.</p>
+              )}
+              <h5>Linked chat summaries</h5>
+              {visualEditLog.length === 0 ? <p>No visual edits yet.</p> : <ul>{visualEditLog.map((line) => <li key={line}>{line}</li>)}</ul>}
             </div>
             <div style={{ border: "1px dashed #999", borderRadius: 8, padding: "1rem", background: "#fafafa" }}>
               <p style={{ margin: 0 }}>Initial board template generated. Autorouting assistance is optional.</p>

@@ -157,3 +157,25 @@ class VerificationRunDetailResponse(VerificationRunResponse):
     raw_output: dict
     normalized_output: dict
     explanations: list[dict]
+
+
+class VisualEditPayload(BaseModel):
+    object_id: str = Field(min_length=1)
+    kind: str = Field(pattern="^(move_footprint|rotate_footprint|lock_footprint|assign_region|toggle_keepout)$")
+    x_mm: float | None = None
+    y_mm: float | None = None
+    delta_deg: float | None = None
+    locked: bool | None = None
+    region_id: str | None = None
+
+
+class VisualEditsSyncRequest(BaseModel):
+    board_ir: BoardIR
+    edits: list[VisualEditPayload] = Field(default_factory=list)
+
+
+class VisualEditsSyncResponse(BaseModel):
+    board_ir: BoardIR
+    patch_plan: dict[str, Any]
+    summary: str
+    object_id: str
