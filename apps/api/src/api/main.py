@@ -38,6 +38,7 @@ from api.schemas import (
 )
 from api.storage import LocalFilesystemStorage
 from trace_kicad.runner import compile_and_export_project, compile_board_project
+from trace_kicad.routing import RoutingPlanner
 from trace_verification import explain_finding, normalize_report, run_kicad_erc
 
 app = FastAPI(title="TraceAgent API", version="0.1.0")
@@ -50,6 +51,7 @@ part_catalog = LocalCuratedPartCatalog()
 part_resolver = PartResolver(part_catalog)
 schematic_synthesis_agent = SchematicSynthesisAgent()
 board_ir_generator = BoardIRGenerator()
+routing_planner = RoutingPlanner()
 
 
 def get_requirements_agent() -> RequirementsAgent:
@@ -294,6 +296,9 @@ def synthesize_project_schematic(
     pdf_target.write_bytes(kicad_pdf_bytes)
     schematic_pdf_path = str(pdf_target)
 
+    routing_plan = routing_planner.classify(schematic_ir=synthesis.schematic_ir, board_ir=board_ir)
+    autoroute_targets = routing_plan.autoroute_targets()
+
     return SchematicSynthesisResponse(
         schematic_ir=synthesis.schematic_ir,
         board_ir=board_ir,
@@ -322,6 +327,15 @@ def synthesize_project_schematic(
             "stackup_layers": len(board_ir.stackup),
             "placement_decisions": len(board_ir.placement_decisions),
             "placement_overlay": board_ir.placement_visualization,
+            "routing_plan_summary": routing_plan.summary(),
+            "autoroute_default_policy": "non-critical-only",
+            "critical_nets_reserved_for_manual": [entry.net_name for entry in routing_plan.nets if entry.routing_class == "critical"],
+            "routing_state": {
+                "routed_count": 0,
+                "unrouted_count": len(autoroute_targets),
+                "eligible_autoroute_nets": autoroute_targets,
+                "verification_required": True,
+            },
         },
     )
 

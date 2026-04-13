@@ -6,6 +6,8 @@ from pathlib import Path
 
 from trace_verification import explain_finding, normalize_report, run_kicad_erc
 
+from worker.freerouting_job import run_freerouting_job
+
 
 def run_erc_verification_job(project_file: str) -> dict:
     raw_output = run_kicad_erc(Path(project_file))
