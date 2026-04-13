@@ -116,6 +116,8 @@ def test_schematic_synthesis_endpoint_persists_ir(tmp_path: Path) -> None:
     assert "warnings" in payload
     assert Path(payload["saved_path"]).exists()
     assert Path(payload["board_ir_path"]).exists()
+    assert payload["board_metadata"]["routing_state"]["routed_count"] == 0
+    assert "routing_plan_summary" in payload["board_metadata"]
 
 
 @pytest.mark.parametrize(

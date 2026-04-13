@@ -33,7 +33,14 @@ type SchematicSynthesisResponse = {
   schematic_pdf_path: string;
   board_ir_path: string;
   kicad_pcb_path: string;
-  board_metadata: Record<string, unknown>;
+  board_metadata: Record<string, unknown> & {
+    routing_state?: {
+      routed_count?: number;
+      unrouted_count?: number;
+      eligible_autoroute_nets?: string[];
+      verification_required?: boolean;
+    };
+  };
 };
 
 type VerificationFinding = {
@@ -365,8 +372,18 @@ export default function HomePage() {
         ) : (
           <div style={{ marginTop: "1rem" }}>
             <h3>PCB Preview (Placeholder)</h3>
+                        <div style={{ border: "1px solid #ddd", borderRadius: 8, padding: "0.75rem", marginBottom: "0.75rem" }}>
+              <h4 style={{ marginTop: 0 }}>Routing Status</h4>
+              <p style={{ margin: "0.25rem 0" }}>
+                Routed: <strong>{synthesis.board_metadata.routing_state?.routed_count ?? 0}</strong> / Unrouted: <strong>{synthesis.board_metadata.routing_state?.unrouted_count ?? 0}</strong>
+              </p>
+              <p style={{ margin: "0.25rem 0" }}>
+                Autorouting policy: <code>non-critical-only</code>
+                {synthesis.board_metadata.routing_state?.verification_required ? " (verification required)" : ""}
+              </p>
+            </div>
             <div style={{ border: "1px dashed #999", borderRadius: 8, padding: "1rem", background: "#fafafa" }}>
-              <p style={{ margin: 0 }}>Initial board template generated. No autorouting applied.</p>
+              <p style={{ margin: 0 }}>Initial board template generated. Autorouting assistance is optional.</p>
               <ul>
                 {Object.entries(synthesis.board_metadata).map(([key, value]) => (
                   <li key={key}>
