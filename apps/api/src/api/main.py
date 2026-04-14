@@ -19,6 +19,8 @@ from api.part_resolver import PartConstraint, PartResolver
 from api.board_synthesis import BoardIRGenerator
 from api.schematic_synthesis import SchematicSynthesisAgent, SelectedPart
 from api.visual_edits import VisualEdit, VisualEditSyncService
+from api.simulation import SimulationService
+from api.review_agent import ReviewAgent
 from api.schemas import (
     ProjectCreate,
     ProjectResponse,
@@ -41,6 +43,11 @@ from api.schemas import (
     ReleaseBundleCreateRequest,
     ReleaseBundleDetailResponse,
     ReleaseBundleResponse,
+    DesignReviewRequest,
+    DesignReviewResponse,
+    ReviewFindingPayload,
+    SimulationResultPayload,
+    ExplainabilityLink,
 )
 from api.storage import LocalFilesystemStorage
 from design_ir.models import BoardIR, SchematicIR
@@ -67,6 +74,8 @@ schematic_synthesis_agent = SchematicSynthesisAgent()
 board_ir_generator = BoardIRGenerator()
 routing_planner = RoutingPlanner()
 visual_edit_sync = VisualEditSyncService()
+simulation_service = SimulationService()
+review_agent = ReviewAgent(simulation_service=simulation_service)
 
 
 def get_requirements_agent() -> RequirementsAgent:
@@ -373,6 +382,47 @@ def _run_project_verification(project: Project) -> tuple[dict, dict, list[dict],
     explanations = [{"code": finding["code"], "plain_english": explain_finding(finding)} for finding in normalized_output.get("findings", [])]
     run_status = "completed" if all(item.get("status") == "completed" for item in [raw_erc, raw_drc, raw_manufacturability]) else "failed"
     return raw_output, normalized_output, explanations, run_status
+
+
+
+
+@app.post("/projects/{project_id}/design/review", response_model=DesignReviewResponse)
+def run_design_review(project_id: UUID, payload: DesignReviewRequest, db: Session = Depends(get_db)) -> DesignReviewResponse:
+    project = db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    simulation_results = simulation_service.run(payload.schematic_ir)
+    findings = review_agent.review(schematic_ir=payload.schematic_ir, board_ir=payload.board_ir)
+    return DesignReviewResponse(
+        disclaimer=(
+            "Advisory review only: this output is not formal signoff. "
+            "Simulation assumptions are estimates and must be validated with full verification."
+        ),
+        findings=[
+            ReviewFindingPayload(
+                category=item.category,
+                title=item.title,
+                advisory=item.advisory,
+                severity=item.severity,
+                is_advisory=True,
+                assumptions=item.assumptions,
+                facts=item.facts,
+                links=[ExplainabilityLink.model_validate(link) for link in item.links],
+            )
+            for item in findings
+        ],
+        simulation_results=[
+            SimulationResultPayload(
+                analysis_type=item.analysis_type,
+                summary=item.summary,
+                assumptions=item.assumptions,
+                facts=item.facts,
+                links=[ExplainabilityLink(kind=link.kind, id=link.id, label=link.label) for link in item.links],
+            )
+            for item in simulation_results
+        ],
+    )
 
 
 @app.post("/projects/{project_id}/verification-runs", response_model=VerificationRunDetailResponse)

@@ -80,6 +80,35 @@ type VerificationRunDetail = {
   explanations: Array<{ code: string; plain_english: string }>;
 };
 
+type ExplainabilityLink = {
+  kind: string;
+  id: string;
+  label: string;
+};
+
+type ReviewFinding = {
+  category: string;
+  title: string;
+  advisory: string;
+  severity: string;
+  is_advisory: boolean;
+  assumptions: string[];
+  facts: string[];
+  links: ExplainabilityLink[];
+};
+
+type DesignReviewResponse = {
+  disclaimer: string;
+  findings: ReviewFinding[];
+  simulation_results: Array<{
+    analysis_type: string;
+    summary: string;
+    assumptions: string[];
+    facts: string[];
+    links: ExplainabilityLink[];
+  }>;
+};
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export default function HomePage() {
@@ -95,7 +124,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [synthesis, setSynthesis] = useState<SchematicSynthesisResponse | null>(null);
   const [loadingSynthesis, setLoadingSynthesis] = useState(false);
-  const [activeTab, setActiveTab] = useState<"summary" | "schematic" | "pcb">("summary");
+  const [activeTab, setActiveTab] = useState<"summary" | "schematic" | "pcb" | "review">("summary");
   const [verification, setVerification] = useState<VerificationRunDetail | null>(null);
   const [loadingVerification, setLoadingVerification] = useState(false);
   const [highlightedObject, setHighlightedObject] = useState<string | null>(null);
@@ -105,6 +134,8 @@ export default function HomePage() {
   const [releaseVersion, setReleaseVersion] = useState<string>("v0.1.0");
   const [loadingRelease, setLoadingRelease] = useState(false);
   const [releaseError, setReleaseError] = useState<string | null>(null);
+  const [review, setReview] = useState<DesignReviewResponse | null>(null);
+  const [loadingReview, setLoadingReview] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -201,6 +232,7 @@ export default function HomePage() {
       setSynthesis((await response.json()) as SchematicSynthesisResponse);
       setSelectedFootprintId("");
       setVisualEditLog([]);
+      setReview(null);
     } catch {
       setError("Schematic synthesis failed.");
     } finally {
@@ -260,6 +292,32 @@ export default function HomePage() {
       setError("Verification run failed.");
     } finally {
       setLoadingVerification(false);
+    }
+  };
+
+  const onRunReview = async () => {
+    setError(null);
+    if (!selectedProjectId || !synthesis) {
+      setError("Generate a schematic before running review.");
+      return;
+    }
+    setLoadingReview(true);
+    try {
+      const response = await fetch(`${API_BASE}/projects/${selectedProjectId}/design/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ schematic_ir: synthesis.schematic_ir, board_ir: synthesis.board_ir }),
+      });
+      if (!response.ok) {
+        setError("Design review failed.");
+        return;
+      }
+      setReview((await response.json()) as DesignReviewResponse);
+      setActiveTab("review");
+    } catch {
+      setError("Design review failed.");
+    } finally {
+      setLoadingReview(false);
     }
   };
 
@@ -432,10 +490,14 @@ export default function HomePage() {
           <button type="button" onClick={() => setActiveTab("summary")}>Summary</button>
           <button type="button" onClick={() => setActiveTab("schematic")}>Schematic</button>
           <button type="button" onClick={() => setActiveTab("pcb")}>PCB</button>
+          <button type="button" onClick={() => setActiveTab("review")}>Review</button>
         </div>
         <p>Generate textual schematic structure from CircuitSpec and selected parts.</p>
         <button type="button" onClick={onSynthesizeSchematic} disabled={loadingSynthesis || !requirements}>
           {loadingSynthesis ? "Synthesizing…" : "Generate SchematicIR"}
+        </button>
+        <button type="button" onClick={onRunReview} disabled={loadingReview || !synthesis} style={{ marginLeft: "0.5rem" }}>
+          {loadingReview ? "Reviewing…" : "Run Advisory Review"}
         </button>
 
         {!synthesis ? (
@@ -487,6 +549,43 @@ export default function HomePage() {
               SVG artifact: <code>{synthesis.schematic_svg_path}</code><br />
               PDF artifact: <code>{synthesis.schematic_pdf_path}</code>
             </p>
+          </div>
+        ) : activeTab === "review" ? (
+          <div style={{ marginTop: "1rem" }}>
+            <h3>Advisory Review</h3>
+            {!review ? (
+              <p>No review output yet. Run Advisory Review.</p>
+            ) : (
+              <>
+                <p><strong>{review.disclaimer}</strong></p>
+                <h4>Simulation assumptions vs facts</h4>
+                <ul>
+                  {review.simulation_results.map((item) => (
+                    <li key={item.analysis_type}>
+                      <strong>{item.analysis_type}</strong>: {item.summary}
+                      <div>Assumptions: {item.assumptions.join(" ") || "None"}</div>
+                      <div>Facts: {item.facts.join(" ") || "None"}</div>
+                    </li>
+                  ))}
+                </ul>
+                <h4>Review Findings</h4>
+                <ul>
+                  {review.findings.map((finding, index) => (
+                    <li key={`${finding.category}-${index}`}>
+                      <strong>{finding.title}</strong> ({finding.severity})<br />
+                      {finding.advisory}
+                      <div style={{ marginTop: "0.25rem" }}>
+                        {finding.links.map((link) => (
+                          <button key={`${finding.category}-${link.kind}-${link.id}`} type="button" onClick={() => setHighlightedObject(link.id)} style={{ marginRight: "0.35rem" }}>
+                            {link.kind}: {link.label}
+                          </button>
+                        ))}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </div>
         ) : (
           <div style={{ marginTop: "1rem" }}>

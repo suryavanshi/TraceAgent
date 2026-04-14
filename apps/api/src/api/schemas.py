@@ -141,6 +141,44 @@ class SchematicSynthesisResponse(BaseModel):
     board_metadata: dict[str, Any]
 
 
+
+
+class DesignReviewRequest(BaseModel):
+    schematic_ir: SchematicIR
+    board_ir: BoardIR
+
+
+class ExplainabilityLink(BaseModel):
+    kind: str
+    id: str
+    label: str
+
+
+class ReviewFindingPayload(BaseModel):
+    category: str
+    title: str
+    advisory: str
+    severity: str
+    is_advisory: bool = True
+    assumptions: list[str] = Field(default_factory=list)
+    facts: list[str] = Field(default_factory=list)
+    links: list[ExplainabilityLink] = Field(default_factory=list)
+
+
+class SimulationResultPayload(BaseModel):
+    analysis_type: str
+    summary: str
+    assumptions: list[str] = Field(default_factory=list)
+    facts: list[str] = Field(default_factory=list)
+    links: list[ExplainabilityLink] = Field(default_factory=list)
+
+
+class DesignReviewResponse(BaseModel):
+    disclaimer: str
+    findings: list[ReviewFindingPayload] = Field(default_factory=list)
+    simulation_results: list[SimulationResultPayload] = Field(default_factory=list)
+
+
 class VerificationRunResponse(BaseModel):
     id: UUID
     project_id: UUID
