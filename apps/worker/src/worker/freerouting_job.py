@@ -12,6 +12,7 @@ from trace_verification import (
     run_kicad_erc,
     run_manufacturability_checks,
 )
+from worker.reliability import run_with_retries
 
 
 def run_freerouting_job(
@@ -41,13 +42,21 @@ def run_freerouting_job(
     )
     ses_path = workspace / f"{Path(pcb_file).stem}.ses"
     log_path = workspace / "freerouting.log"
-    ok = freerouting.run_cli(dsn_path=exported.dsn_path, ses_path=ses_path, log_path=log_path)
+    ok = run_with_retries(
+        "freerouting_cli",
+        lambda: freerouting.run_cli(dsn_path=exported.dsn_path, ses_path=ses_path, log_path=log_path),
+        payload={"dsn_path": str(exported.dsn_path), "ses_path": str(ses_path), "log_path": str(log_path)},
+    )
 
     imported = specctra_io.import_ses(ses_path=ses_path, routing_plan=routing_plan)
 
-    raw_erc = run_kicad_erc(Path(project_file))
-    raw_drc = run_kicad_drc(Path(pcb_file))
-    raw_manufacturability = run_manufacturability_checks(Path(pcb_file))
+    raw_erc = run_with_retries("freerouting_erc", lambda: run_kicad_erc(Path(project_file)), payload={"project_file": project_file})
+    raw_drc = run_with_retries("freerouting_drc", lambda: run_kicad_drc(Path(pcb_file)), payload={"pcb_file": pcb_file})
+    raw_manufacturability = run_with_retries(
+        "freerouting_manufacturability",
+        lambda: run_manufacturability_checks(Path(pcb_file)),
+        payload={"pcb_file": pcb_file},
+    )
     raw_output = {"erc": raw_erc, "drc": raw_drc, "manufacturability": raw_manufacturability}
     normalized_output = normalize_verification_suite(raw_output)
     explanations = [{"code": finding["code"], "plain_english": explain_finding(finding)} for finding in normalized_output.get("findings", [])]

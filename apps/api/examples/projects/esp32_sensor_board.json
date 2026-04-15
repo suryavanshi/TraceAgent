@@ -1,0 +1,8 @@
+{
+  "title": "ESP32 Sensor Board",
+  "notes": "Seed project with ESP32 MCU, USB-C power, and I2C environmental sensors.",
+  "files": [
+    {"path": "README.md", "content": "# ESP32 Sensor Board\n\nIncludes ESP32-WROOM module, BME280 sensor, and USB-C input."},
+    {"path": "design/spec.md", "content": "MCU: ESP32-WROOM-32E\nPower: USB-C 5V to 3.3V buck\nSensors: BME280 over I2C\n"}
+  ]
+}

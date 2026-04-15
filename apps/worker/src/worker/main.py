@@ -13,10 +13,15 @@ from trace_verification import (
 )
 
 from worker.freerouting_job import run_freerouting_job
+from worker.reliability import run_with_retries
 
 
 def run_erc_verification_job(project_file: str) -> dict:
-    raw_erc = run_kicad_erc(Path(project_file))
+    raw_erc = run_with_retries(
+        "erc_verification",
+        lambda: run_kicad_erc(Path(project_file)),
+        payload={"project_file": project_file},
+    )
     normalized_output = normalize_verification_suite({"erc": raw_erc})
     explanations = [{"code": finding["code"], "plain_english": explain_finding(finding)} for finding in normalized_output.get("findings", [])]
     return {
@@ -28,9 +33,13 @@ def run_erc_verification_job(project_file: str) -> dict:
 
 
 def run_pcb_verification_job(project_file: str, pcb_file: str, *, current_target_amps: float = 1.0) -> dict:
-    raw_erc = run_kicad_erc(Path(project_file))
-    raw_drc = run_kicad_drc(Path(pcb_file))
-    raw_manufacturability = run_manufacturability_checks(Path(pcb_file), current_target_amps=current_target_amps)
+    raw_erc = run_with_retries("pcb_erc", lambda: run_kicad_erc(Path(project_file)), payload={"project_file": project_file})
+    raw_drc = run_with_retries("pcb_drc", lambda: run_kicad_drc(Path(pcb_file)), payload={"pcb_file": pcb_file})
+    raw_manufacturability = run_with_retries(
+        "pcb_manufacturability",
+        lambda: run_manufacturability_checks(Path(pcb_file), current_target_amps=current_target_amps),
+        payload={"pcb_file": pcb_file, "current_target_amps": current_target_amps},
+    )
     raw_output = {"erc": raw_erc, "drc": raw_drc, "manufacturability": raw_manufacturability}
     normalized_output = normalize_verification_suite(raw_output)
     explanations = [{"code": finding["code"], "plain_english": explain_finding(finding)} for finding in normalized_output.get("findings", [])]

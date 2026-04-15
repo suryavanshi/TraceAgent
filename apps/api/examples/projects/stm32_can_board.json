@@ -1,0 +1,8 @@
+{
+  "title": "STM32 CAN Board",
+  "notes": "Seed project for CAN node built around STM32 with isolated transceiver.",
+  "files": [
+    {"path": "README.md", "content": "# STM32 CAN Board\n\nIncludes STM32G4 MCU and CAN FD transceiver."},
+    {"path": "design/spec.md", "content": "MCU: STM32G474\nBus: CAN FD\nTransceiver: TCAN1042\nInput: 9-24V with protection\n"}
+  ]
+}

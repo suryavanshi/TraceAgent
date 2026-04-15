@@ -15,6 +15,8 @@ class StubFreerouting:
 
 def test_freerouting_job_runs_and_verifies(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr("worker.freerouting_job.run_kicad_erc", lambda _path: {"status": "completed", "issues": []})
+    monkeypatch.setattr("worker.freerouting_job.run_kicad_drc", lambda _path: {"status": "completed", "issues": []})
+    monkeypatch.setattr("worker.freerouting_job.run_manufacturability_checks", lambda _path: {"status": "completed", "issues": []})
 
     schematic = SchematicIR(nets=[Net(net_id="n1", name="VBUS"), Net(net_id="n2", name="USB_D_P")])
     board = BoardIR(board_outline=BoardOutline(shape="rectangle", dimensions_mm={"width": 10, "height": 10}))

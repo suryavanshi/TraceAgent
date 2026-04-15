@@ -1,0 +1,8 @@
+{
+  "title": "USB-C UART Adapter",
+  "notes": "Seed project for USB-C to 3.3V UART bridge using CP2102N.",
+  "files": [
+    {"path": "README.md", "content": "# USB-C UART Adapter\n\nBridge board for USB-C to UART with ESD protection."},
+    {"path": "design/spec.md", "content": "Bridge: CP2102N\nConnector: USB-C receptacle\nSignals: TX/RX/RTS/CTS\nProtection: TVS on VBUS and data lines\n"}
+  ]
+}
