@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
 import tempfile
@@ -11,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from api.db import Base, engine, get_db
+from api.audit import AuditEvent, audit_logger
 from api.git_snapshots import GitSnapshotRepository
 from api.models import DesignSnapshot, Project, ReleaseBundle, User, VerificationRun
 from api.requirements_agent import RequirementsAgent, RequirementsChatMessage as AgentChatMessage, RuleBasedRequirementsProvider
@@ -50,6 +52,10 @@ from api.schemas import (
     ExplainabilityLink,
 )
 from api.storage import LocalFilesystemStorage
+from api.security import AuthContext, require_auth, require_role
+from api.rate_limit import install_rate_limiting
+from api.observability import install_observability
+from api.retention import prune_artifacts
 from design_ir.models import BoardIR, SchematicIR
 from trace_kicad.runner import compile_and_export_project, compile_board_project
 from trace_kicad.routing import RoutingPlanner
@@ -63,9 +69,11 @@ from trace_verification import (
 from worker.release import build_release_bundle
 
 app = FastAPI(title="TraceAgent API", version="0.1.0")
+logger = logging.getLogger("traceagent.api")
 
 STORAGE_BASE = os.getenv("ARTIFACT_STORAGE_BASE", "/tmp/traceagent/artifacts")
 SNAPSHOT_BASE = os.getenv("SNAPSHOT_REPO_BASE", "/tmp/traceagent/snapshots")
+SEED_PROJECTS_DIR = Path(__file__).resolve().parents[2] / "examples" / "projects"
 storage = LocalFilesystemStorage(STORAGE_BASE)
 
 part_catalog = LocalCuratedPartCatalog()
@@ -76,6 +84,8 @@ routing_planner = RoutingPlanner()
 visual_edit_sync = VisualEditSyncService()
 simulation_service = SimulationService()
 review_agent = ReviewAgent(simulation_service=simulation_service)
+install_rate_limiting(app)
+install_observability(app)
 
 
 def get_requirements_agent() -> RequirementsAgent:
@@ -98,7 +108,8 @@ def readiness() -> dict[str, str]:
 
 
 @app.post("/projects", response_model=ProjectResponse)
-def create_project(payload: ProjectCreate, db: Session = Depends(get_db)) -> Project:
+def create_project(payload: ProjectCreate, db: Session = Depends(get_db), auth: AuthContext = Depends(require_auth)) -> Project:
+    require_role(auth, {"admin", "editor"})
     user = db.scalar(select(User).where(User.email == payload.owner_email))
     if user is None:
         user = User(email=payload.owner_email, display_name=payload.owner_display_name)
@@ -119,12 +130,22 @@ def create_project(payload: ProjectCreate, db: Session = Depends(get_db)) -> Pro
     db.commit()
     db.refresh(project)
     GitSnapshotRepository(project.snapshot_repo_dir)
+    audit_logger.write(AuditEvent(actor=auth.subject, action="create_project", resource=str(project.id), status="success"))
     return project
 
 
 @app.get("/projects", response_model=list[ProjectResponse])
 def list_projects(db: Session = Depends(get_db)) -> list[Project]:
     return list(db.scalars(select(Project).order_by(Project.created_at.desc())).all())
+
+
+@app.get("/seed-projects")
+def list_seed_projects() -> list[dict[str, str]]:
+    results: list[dict[str, str]] = []
+    for seed_file in sorted(SEED_PROJECTS_DIR.glob("*.json")):
+        payload = json.loads(seed_file.read_text(encoding="utf-8"))
+        results.append({"slug": seed_file.stem, "title": payload["title"], "notes": payload["notes"]})
+    return results
 
 
 @app.get("/projects/{project_id}", response_model=ProjectResponse)
@@ -136,7 +157,10 @@ def get_project(project_id: UUID, db: Session = Depends(get_db)) -> Project:
 
 
 @app.post("/projects/{project_id}/snapshots", response_model=SnapshotResponse)
-def create_snapshot(project_id: UUID, payload: SnapshotCreate, db: Session = Depends(get_db)) -> DesignSnapshot:
+def create_snapshot(
+    project_id: UUID, payload: SnapshotCreate, db: Session = Depends(get_db), auth: AuthContext = Depends(require_auth)
+) -> DesignSnapshot:
+    require_role(auth, {"admin", "editor"})
     project = db.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -161,6 +185,9 @@ def create_snapshot(project_id: UUID, payload: SnapshotCreate, db: Session = Dep
     db.add(snapshot)
     db.commit()
     db.refresh(snapshot)
+    audit_logger.write(
+        AuditEvent(actor=auth.subject, action="create_snapshot", resource=str(snapshot.id), status="success", metadata={"project_id": str(project.id)})
+    )
     return snapshot
 
 
@@ -174,8 +201,30 @@ def list_snapshots(project_id: UUID, db: Session = Depends(get_db)) -> list[Desi
     )
 
 
+@app.post("/projects/{project_id}/seed/{seed_slug}", response_model=SnapshotResponse)
+def seed_project(
+    project_id: UUID,
+    seed_slug: str,
+    db: Session = Depends(get_db),
+    auth: AuthContext = Depends(require_auth),
+) -> DesignSnapshot:
+    require_role(auth, {"admin", "editor"})
+    project = db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    seed_file = SEED_PROJECTS_DIR / f"{seed_slug}.json"
+    if not seed_file.exists():
+        raise HTTPException(status_code=404, detail="Seed project not found")
+    payload = json.loads(seed_file.read_text(encoding="utf-8"))
+    snapshot_payload = SnapshotCreate.model_validate(payload)
+    return create_snapshot(project_id=project_id, payload=snapshot_payload, db=db, auth=auth)
+
+
 @app.post("/projects/{project_id}/snapshots/{snapshot_id}/revert", response_model=SnapshotRevertResponse)
-def revert_snapshot(project_id: UUID, snapshot_id: UUID, db: Session = Depends(get_db)) -> SnapshotRevertResponse:
+def revert_snapshot(
+    project_id: UUID, snapshot_id: UUID, db: Session = Depends(get_db), auth: AuthContext = Depends(require_auth)
+) -> SnapshotRevertResponse:
+    require_role(auth, {"admin", "editor"})
     project = db.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -185,6 +234,7 @@ def revert_snapshot(project_id: UUID, snapshot_id: UUID, db: Session = Depends(g
 
     git_repo = GitSnapshotRepository(project.snapshot_repo_dir)
     current_hash = git_repo.revert_to(snapshot.git_commit_hash)
+    audit_logger.write(AuditEvent(actor=auth.subject, action="revert_snapshot", resource=str(snapshot.id), status="success"))
     return SnapshotRevertResponse(
         project_id=project.id,
         reverted_to_snapshot_id=snapshot.id,
@@ -263,7 +313,9 @@ def synthesize_project_schematic(
     project_id: UUID,
     payload: SchematicSynthesisRequest,
     db: Session = Depends(get_db),
+    auth: AuthContext = Depends(require_auth),
 ) -> SchematicSynthesisResponse:
+    require_role(auth, {"admin", "editor"})
     project = db.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -275,7 +327,7 @@ def synthesize_project_schematic(
 
     artifact_dir = f"{project.artifact_root_dir}/generated"
     relative_path = "schematic_ir/schematic_ir.json"
-    saved_path = storage.write_text(artifact_dir, relative_path, json.dumps(synthesis.model_dump(), indent=2, sort_keys=True))
+    saved_path = storage.write_text(artifact_dir, relative_path, json.dumps(synthesis.schematic_ir.model_dump(), indent=2, sort_keys=True))
     board_ir = board_ir_generator.generate(circuit_spec=payload.circuit_spec, schematic_ir=synthesis.schematic_ir)
     board_ir_path = storage.write_text(
         artifact_dir,
@@ -323,7 +375,7 @@ def synthesize_project_schematic(
     routing_plan = routing_planner.classify(schematic_ir=synthesis.schematic_ir, board_ir=board_ir)
     autoroute_targets = routing_plan.autoroute_targets()
 
-    return SchematicSynthesisResponse(
+    response = SchematicSynthesisResponse(
         schematic_ir=synthesis.schematic_ir,
         board_ir=board_ir,
         power_tree=[edge.model_dump() for edge in synthesis.power_tree],
@@ -362,6 +414,8 @@ def synthesize_project_schematic(
             },
         },
     )
+    audit_logger.write(AuditEvent(actor=auth.subject, action="synthesize_schematic", resource=str(project.id), status="success"))
+    return response
 
 
 def _run_project_verification(project: Project) -> tuple[dict, dict, list[dict], str]:
@@ -426,7 +480,10 @@ def run_design_review(project_id: UUID, payload: DesignReviewRequest, db: Sessio
 
 
 @app.post("/projects/{project_id}/verification-runs", response_model=VerificationRunDetailResponse)
-def create_verification_run(project_id: UUID, db: Session = Depends(get_db)) -> VerificationRunDetailResponse:
+def create_verification_run(
+    project_id: UUID, db: Session = Depends(get_db), auth: AuthContext = Depends(require_auth)
+) -> VerificationRunDetailResponse:
+    require_role(auth, {"admin", "editor"})
     project = db.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -463,12 +520,22 @@ def create_verification_run(project_id: UUID, db: Session = Depends(get_db)) -> 
     db.commit()
     db.refresh(verification_run)
 
-    return VerificationRunDetailResponse(
+    response = VerificationRunDetailResponse(
         **VerificationRunResponse.model_validate(verification_run, from_attributes=True).model_dump(),
         raw_output=raw_output,
         normalized_output=normalized_output,
         explanations=explanations,
     )
+    audit_logger.write(
+        AuditEvent(
+            actor=auth.subject,
+            action="create_verification_run",
+            resource=str(verification_run.id),
+            status=run_status,
+            metadata={"project_id": str(project.id)},
+        )
+    )
+    return response
 
 
 @app.get("/projects/{project_id}/verification-runs", response_model=list[VerificationRunResponse])
@@ -503,7 +570,10 @@ def get_verification_run(project_id: UUID, run_id: UUID, db: Session = Depends(g
 
 
 @app.post("/projects/{project_id}/visual-edits/sync", response_model=list[VisualEditsSyncResponse])
-def sync_visual_edits(project_id: UUID, payload: VisualEditsSyncRequest, db: Session = Depends(get_db)) -> list[VisualEditsSyncResponse]:
+def sync_visual_edits(
+    project_id: UUID, payload: VisualEditsSyncRequest, db: Session = Depends(get_db), auth: AuthContext = Depends(require_auth)
+) -> list[VisualEditsSyncResponse]:
+    require_role(auth, {"admin", "editor"})
     project = db.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -520,22 +590,41 @@ def sync_visual_edits(project_id: UUID, payload: VisualEditsSyncRequest, db: Ses
                 object_id=applied.object_id,
             )
         )
+        audit_logger.write(
+            AuditEvent(
+                actor=auth.subject,
+                action="apply_visual_edit",
+                resource=applied.object_id,
+                status="success",
+                metadata={"project_id": str(project.id), "summary": applied.summary},
+            )
+        )
     return responses
 
 
 @app.post("/projects/{project_id}/visual-edits/undo", response_model=BoardIR)
-def undo_visual_edit(project_id: UUID, db: Session = Depends(get_db)) -> BoardIR:
+def undo_visual_edit(project_id: UUID, db: Session = Depends(get_db), auth: AuthContext = Depends(require_auth)) -> BoardIR:
+    require_role(auth, {"admin", "editor"})
     project = db.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
     try:
-        return visual_edit_sync.undo(str(project_id))
+        board_ir = visual_edit_sync.undo(str(project_id))
+        audit_logger.write(AuditEvent(actor=auth.subject, action="undo_visual_edit", resource=str(project_id), status="success"))
+        return board_ir
     except Exception as exc:
+        audit_logger.write(AuditEvent(actor=auth.subject, action="undo_visual_edit", resource=str(project_id), status="failed", metadata={"error": str(exc)}))
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/projects/{project_id}/releases", response_model=ReleaseBundleDetailResponse)
-def create_release_bundle(project_id: UUID, payload: ReleaseBundleCreateRequest, db: Session = Depends(get_db)) -> ReleaseBundleDetailResponse:
+def create_release_bundle(
+    project_id: UUID,
+    payload: ReleaseBundleCreateRequest,
+    db: Session = Depends(get_db),
+    auth: AuthContext = Depends(require_auth),
+) -> ReleaseBundleDetailResponse:
+    require_role(auth, {"admin", "editor"})
     project = db.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -575,11 +664,21 @@ def create_release_bundle(project_id: UUID, payload: ReleaseBundleCreateRequest,
     db.commit()
     db.refresh(release)
 
-    return ReleaseBundleDetailResponse(
+    response = ReleaseBundleDetailResponse(
         **ReleaseBundleResponse.model_validate(release, from_attributes=True).model_dump(),
         manifest=bundle_result.manifest,
         files=bundle_result.files,
     )
+    audit_logger.write(
+        AuditEvent(
+            actor=auth.subject,
+            action="create_release_bundle",
+            resource=str(release.id),
+            status="success",
+            metadata={"project_id": str(project.id), "version": payload.version},
+        )
+    )
+    return response
 
 
 @app.get("/projects/{project_id}/releases", response_model=list[ReleaseBundleResponse])
@@ -590,3 +689,11 @@ def list_release_bundles(project_id: UUID, db: Session = Depends(get_db)) -> lis
     return list(
         db.scalars(select(ReleaseBundle).where(ReleaseBundle.project_id == project_id).order_by(ReleaseBundle.created_at.desc())).all()
     )
+
+
+@app.post("/ops/artifacts/prune")
+def prune_artifacts_endpoint(auth: AuthContext = Depends(require_auth)) -> dict[str, list[str]]:
+    require_role(auth, {"admin"})
+    result = prune_artifacts(STORAGE_BASE)
+    logger.info("artifact_prune deleted=%s skipped=%s", len(result.deleted_paths), len(result.skipped_paths))
+    return {"deleted_paths": result.deleted_paths, "skipped_paths": result.skipped_paths}

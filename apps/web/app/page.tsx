@@ -110,6 +110,19 @@ type DesignReviewResponse = {
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_TOKEN = process.env.NEXT_PUBLIC_API_TOKEN ?? "trace-admin-token";
+
+const authHeaders = { "Content-Type": "application/json", "X-API-Token": API_TOKEN };
+
+async function getErrorMessage(response: Response, fallback: string): Promise<string> {
+  try {
+    const payload = (await response.json()) as { detail?: string; blocker?: string };
+    const detail = payload.detail ?? fallback;
+    return payload.blocker ? `${detail} Blocker: ${payload.blocker}` : detail;
+  } catch {
+    return fallback;
+  }
+}
 
 export default function HomePage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -140,7 +153,7 @@ export default function HomePage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const projectResponse = await fetch(`${API_BASE}/projects`);
+        const projectResponse = await fetch(`${API_BASE}/projects`, { headers: { "X-API-Token": API_TOKEN } });
         if (!projectResponse.ok) {
           return;
         }
@@ -163,7 +176,7 @@ export default function HomePage() {
         setSnapshots([]);
         return;
       }
-      const snapshotResponse = await fetch(`${API_BASE}/projects/${selectedProjectId}/snapshots`);
+      const snapshotResponse = await fetch(`${API_BASE}/projects/${selectedProjectId}/snapshots`, { headers: { "X-API-Token": API_TOKEN } });
       if (!snapshotResponse.ok) {
         setSnapshots([]);
         return;
@@ -180,7 +193,7 @@ export default function HomePage() {
         setReleases([]);
         return;
       }
-      const response = await fetch(`${API_BASE}/projects/${selectedProjectId}/releases`);
+      const response = await fetch(`${API_BASE}/projects/${selectedProjectId}/releases`, { headers: { "X-API-Token": API_TOKEN } });
       if (!response.ok) {
         setReleases([]);
         return;
@@ -217,7 +230,7 @@ export default function HomePage() {
 
       const response = await fetch(`${API_BASE}/projects/${selectedProjectId}/schematic/synthesize`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           circuit_spec: requirements.proposed_circuit_spec,
           selected_parts: [],
@@ -225,7 +238,7 @@ export default function HomePage() {
       });
 
       if (!response.ok) {
-        setError("Schematic synthesis failed.");
+        setError(await getErrorMessage(response, "Schematic synthesis failed."));
         return;
       }
 
@@ -253,7 +266,7 @@ export default function HomePage() {
 
       const response = await fetch(`${API_BASE}/projects/${selectedProjectId}/requirements/derive`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           latest_user_request: latestPrompt,
           chat_history: parsedHistory,
@@ -261,7 +274,7 @@ export default function HomePage() {
       });
 
       if (!response.ok) {
-        setError("Requirements derivation failed.");
+        setError(await getErrorMessage(response, "Requirements derivation failed."));
         return;
       }
 
@@ -281,9 +294,9 @@ export default function HomePage() {
     }
     setLoadingVerification(true);
     try {
-      const response = await fetch(`${API_BASE}/projects/${selectedProjectId}/verification-runs`, { method: "POST" });
+      const response = await fetch(`${API_BASE}/projects/${selectedProjectId}/verification-runs`, { method: "POST", headers: { "X-API-Token": API_TOKEN } });
       if (!response.ok) {
-        setError("Verification run failed.");
+        setError(await getErrorMessage(response, "Verification run failed."));
         return;
       }
       setVerification((await response.json()) as VerificationRunDetail);
@@ -305,11 +318,11 @@ export default function HomePage() {
     try {
       const response = await fetch(`${API_BASE}/projects/${selectedProjectId}/design/review`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({ schematic_ir: synthesis.schematic_ir, board_ir: synthesis.board_ir }),
       });
       if (!response.ok) {
-        setError("Design review failed.");
+        setError(await getErrorMessage(response, "Design review failed."));
         return;
       }
       setReview((await response.json()) as DesignReviewResponse);
@@ -343,14 +356,14 @@ export default function HomePage() {
     }
     const response = await fetch(`${API_BASE}/projects/${selectedProjectId}/visual-edits/sync`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders,
       body: JSON.stringify({
         board_ir: synthesis.board_ir,
         edits: [edit],
       }),
     });
     if (!response.ok) {
-      setError("Visual edit sync failed.");
+      setError(await getErrorMessage(response, "Visual edit sync failed."));
       return;
     }
     const [result] = (await response.json()) as Array<{ board_ir: SchematicSynthesisResponse["board_ir"]; summary: string }>;
@@ -362,9 +375,9 @@ export default function HomePage() {
     if (!selectedProjectId || !synthesis) {
       return;
     }
-    const response = await fetch(`${API_BASE}/projects/${selectedProjectId}/visual-edits/undo`, { method: "POST" });
+    const response = await fetch(`${API_BASE}/projects/${selectedProjectId}/visual-edits/undo`, { method: "POST", headers: { "X-API-Token": API_TOKEN } });
     if (!response.ok) {
-      setError("Undo failed.");
+      setError(await getErrorMessage(response, "Undo failed."));
       return;
     }
     setSynthesis({ ...synthesis, board_ir: (await response.json()) as SchematicSynthesisResponse["board_ir"] });
@@ -386,7 +399,7 @@ export default function HomePage() {
     try {
       const response = await fetch(`${API_BASE}/projects/${selectedProjectId}/releases`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           snapshot_id: snapshots[0].id,
           version: releaseVersion,
@@ -394,11 +407,11 @@ export default function HomePage() {
         }),
       });
       if (!response.ok) {
-        setReleaseError("Release bundle generation failed.");
+        setReleaseError(await getErrorMessage(response, "Release bundle generation failed."));
         return;
       }
       const _bundle = (await response.json()) as { id: string };
-      const refresh = await fetch(`${API_BASE}/projects/${selectedProjectId}/releases`);
+      const refresh = await fetch(`${API_BASE}/projects/${selectedProjectId}/releases`, { headers: { "X-API-Token": API_TOKEN } });
       if (refresh.ok) {
         setReleases((await refresh.json()) as ReleaseBundle[]);
       }
@@ -681,6 +694,11 @@ export default function HomePage() {
         ) : (
           <div style={{ marginTop: "0.75rem" }}>
             <p>Status: <strong>{verification.status}</strong></p>
+            {verification.status !== "completed" ? (
+              <p style={{ color: "#9a3412", fontWeight: 600 }}>
+                Blocker: verification reported failures. Release should not proceed until blockers are resolved.
+              </p>
+            ) : null}
             {verification.normalized_output.checks ? (
               <div style={{ marginBottom: "1rem" }}>
                 <h3>Checks</h3>

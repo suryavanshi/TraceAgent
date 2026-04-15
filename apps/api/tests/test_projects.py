@@ -218,3 +218,11 @@ def test_release_bundle_creation_and_listing(tmp_path: Path, monkeypatch) -> Non
     list_releases = client.get(f"/projects/{project['id']}/releases")
     assert list_releases.status_code == 200
     assert len(list_releases.json()) == 1
+
+
+def test_seed_projects_endpoint(tmp_path: Path) -> None:
+    client = build_test_client(tmp_path)
+    response = client.get("/seed-projects")
+    assert response.status_code == 200
+    payload = response.json()
+    assert any(item["slug"] == "esp32_sensor_board" for item in payload)
