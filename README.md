@@ -40,23 +40,46 @@ infra/
 - **Python 3.12**
 - **Docker + Docker Compose**
 
-## Quick start (local, non-Docker)
+## macOS install and run
 
-1. Copy environment templates:
-   ```bash
-   cp .env.example .env
-   cp apps/api/.env.example apps/api/.env
-   cp apps/worker/.env.example apps/worker/.env
-   cp apps/web/.env.example apps/web/.env.local
-   ```
-2. Install dependencies:
-   ```bash
-   make install
-   ```
-3. Run all services in dev mode:
-   ```bash
-   make dev
-   ```
+### 1) Install prerequisites (Homebrew)
+
+```bash
+brew install node@20 pnpm python@3.12 docker
+```
+
+After installing, make sure Docker Desktop is running so `docker compose` is available.
+
+### 2) Clone and configure environment files
+
+```bash
+cp .env.example .env
+cp apps/api/.env.example apps/api/.env
+cp apps/worker/.env.example apps/worker/.env
+cp apps/web/.env.example apps/web/.env.local
+```
+
+### 3) Install dependencies
+
+```bash
+make install
+```
+
+### 4) Run the full stack on macOS (Docker Compose)
+
+```bash
+make dev
+```
+
+This brings up web, API, worker, Postgres, and Redis together.
+
+### Optional: run only the frontend locally
+
+```bash
+pnpm dev
+```
+
+The web UI is served on `http://localhost:3000`.
 
 ## Docker-based local development
 
